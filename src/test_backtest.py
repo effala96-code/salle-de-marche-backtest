@@ -20,6 +20,12 @@ from rsi_strategy import (
     comparer_strategies_rsi,
     simuler_rsi,
 )
+from momentum_strategy import (
+    backtest_momentum,
+    calculer_momentum,
+    calculer_poids_momentum,
+    simuler_momentum,
+)
 
 
 class BacktestTests(unittest.TestCase):
@@ -157,6 +163,80 @@ class BacktestTests(unittest.TestCase):
         self.assertTrue(any("RSI 7 - 20/80" in nom for nom in resultats))
         self.assertTrue(any("RSI 21 - 40/60" in nom for nom in resultats))
 
+    def test_momentum_uses_126_sessions_and_selects_three_titles(self):
+        dates = pd.bdate_range("2020-01-01", periods=260)
+        cours = pd.DataFrame(
+            {
+                "A": [100.0 + index for index in range(260)],
+                "B": [100.0 + index * 0.5 for index in range(260)],
+                "C": [100.0 + index * 2.0 for index in range(260)],
+                "D": [100.0 - index * 0.1 for index in range(260)],
+            },
+            index=dates,
+        )
+
+        momentum = calculer_momentum(cours, periode=126)
+        poids = calculer_poids_momentum(cours, periode=126, nombre_titres=3)
+
+        self.assertTrue(momentum.loc[dates[-1], "C"] > momentum.loc[dates[-1], "D"])
+        poids_actifs = poids[poids.sum(axis=1) > 0]
+        self.assertGreater(len(poids_actifs), 0)
+        self.assertTrue(poids_actifs.iloc[-1].gt(0).sum() <= 3)
+        self.assertTrue(poids_actifs.sum(axis=1).between(0.99, 1.01).all())
+
+    def test_momentum_weights_are_held_until_next_month_and_shifted_one_day(self):
+        dates = pd.bdate_range("2020-01-01", periods=260)
+        cours = pd.DataFrame(
+            {
+                "A": [100.0 + index for index in range(260)],
+                "B": [100.0 + index * 2.0 for index in range(260)],
+                "C": [100.0 - index * 0.5 for index in range(260)],
+            },
+            index=dates,
+        )
+        poids = calculer_poids_momentum(cours, periode=10, nombre_titres=2)
+        month_ends = poids.groupby(poids.index.to_period("M")).tail(1)
+
+        for position in range(len(month_ends) - 1):
+            current = month_ends.iloc[position]
+            next_row = month_ends.iloc[position + 1]
+            self.assertTrue(current.sum() <= 1.0)
+            self.assertTrue(next_row.sum() <= 1.0)
+
+        self.assertTrue((poids >= 0).all().all())
+        self.assertTrue((poids.sum(axis=1).between(0, 1)).all())
+
+    def test_momentum_backtest_applies_cost_on_weight_turnover(self):
+        dates = pd.bdate_range("2020-01-01", periods=140)
+        donnees = {
+            "A": pd.DataFrame({"Close": [100.0 + index for index in range(140)]}, index=dates),
+            "B": pd.DataFrame({"Close": [100.0 + index * 0.5 for index in range(140)]}, index=dates),
+            "C": pd.DataFrame({"Close": [100.0 - index * 0.1 for index in range(140)]}, index=dates),
+        }
+
+        resultat = simuler_momentum(
+            donnees,
+            periode=126,
+            nombre_titres=3,
+            cout=0.001,
+        )
+
+        self.assertIn("strategie", resultat.columns)
+        self.assertIn("turnover", resultat.columns)
+        self.assertTrue((resultat["turnover"] >= 0).all())
+        self.assertEqual(len(resultat), 140)
+
+        with patch("momentum_strategy.telecharger", side_effect=[
+            donnees["A"],
+            donnees["B"],
+            donnees["C"],
+        ]):
+            backtest_momentum(
+                ["A", "B", "C"],
+                periode=126,
+                debut="2020-01-01",
+            )
+
     def test_current_signal_is_buy_or_sell(self):
         donnees = pd.DataFrame(
             {"Close": [100.0, 102.0], "position": [0, 1]},
@@ -256,15 +336,19 @@ class BacktestTests(unittest.TestCase):
         application = racine / "src" / "app.py"
         atelier = racine / "src" / "notebooks" / "atelier_analyse.ipynb"
         atelier_rsi = racine / "src" / "notebooks" / "projet2_rsi.ipynb"
+        atelier_momentum = racine / "src" / "notebooks" / "projet3_momentum.ipynb"
 
         compile(application.read_text(encoding="utf-8"), str(application), "exec")
         with atelier.open("r", encoding="utf-8") as fichier:
             contenu_notebook = json.load(fichier)
         with atelier_rsi.open("r", encoding="utf-8") as fichier:
             contenu_notebook_rsi = json.load(fichier)
+        with atelier_momentum.open("r", encoding="utf-8") as fichier:
+            contenu_notebook_momentum = json.load(fichier)
 
         self.assertEqual(contenu_notebook["nbformat"], 4)
         self.assertEqual(contenu_notebook_rsi["nbformat"], 4)
+        self.assertEqual(contenu_notebook_momentum["nbformat"], 4)
 
 
 if __name__ == "__main__":

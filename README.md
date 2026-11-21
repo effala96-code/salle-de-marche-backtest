@@ -131,3 +131,13 @@ s'affichent dans l'onglet RSI; le tableau des bougies récentes peut être expor
 en CSV. Les barres Yahoo Finance peuvent être différées et restent inchangées
 hors séance. Les dates choisies servent à l'historique du backtest; le suivi
 intrajournalier couvre les cinq derniers jours.
+
+## Projet 3 - Momentum et rotation mensuelle
+
+Dans l'onglet **Projet 3 - Momentum** du dashboard ou dans
+`src/notebooks/projet3_momentum.ipynb`, saisissez plusieurs tickers séparés par
+des virgules. A la fin de chaque mois, la stratégie calcule
+`pct_change(126)`, sélectionne les trois titres les plus performants avec
+`nlargest(3)` et leur attribue un poids égal. Les poids sont conservés jusqu'au
+mois suivant puis décalés d'une séance pour éviter tout biais d'anticipation.
+Les coûts sont déduits lors des rotations du portefeuille.

@@ -23,6 +23,7 @@ from metrics import metriques
 from strategy import backtest_moyennes, signal_actuel
 from data import telecharger, telecharger_intraday
 from rsi_strategy import comparer_strategies_rsi
+from momentum_strategy import backtest_momentum
 
 
 st.set_page_config(
@@ -62,8 +63,20 @@ with st.sidebar:
     debut = st.date_input("Debut", pd.Timestamp("2018-01-01"))
     fin = st.date_input("Fin", value=None)
 
-onglet_backtest, onglet_rsi, onglet_documents, onglet_csv = st.tabs(
-    ["Backtest MM", "Projet 2 - RSI", "Documents", "Donnees CSV"]
+(
+    onglet_backtest,
+    onglet_rsi,
+    onglet_momentum,
+    onglet_documents,
+    onglet_csv,
+) = st.tabs(
+    [
+        "Backtest MM",
+        "Projet 2 - RSI",
+        "Projet 3 - Momentum",
+        "Documents",
+        "Donnees CSV",
+    ]
 )
 
 with onglet_backtest:
@@ -368,6 +381,107 @@ with onglet_rsi:
             mime="text/csv",
             key="telecharger_comparatif_rsi",
         )
+
+with onglet_momentum:
+    st.subheader("Momentum et rotation mensuelle")
+    st.caption(
+        "Chaque mois, les trois titres ayant le meilleur rendement sur "
+        "126 seances sont detenus a poids egaux."
+    )
+    tickers_momentum = st.text_input(
+        "Tickers separes par une virgule",
+        value="AI.PA, MC.PA, OR.PA",
+        key="tickers_momentum",
+    )
+    periode_momentum = st.number_input(
+        "Periode de momentum",
+        min_value=20,
+        max_value=500,
+        value=126,
+        step=1,
+        key="periode_momentum",
+    )
+    nombre_titres = st.number_input(
+        "Nombre de titres",
+        min_value=1,
+        max_value=20,
+        value=3,
+        step=1,
+        key="nombre_titres_momentum",
+    )
+
+    if st.button("Executer le momentum", type="primary"):
+        liste_tickers = [
+            symbole.strip().upper()
+            for symbole in tickers_momentum.split(",")
+            if symbole.strip()
+        ]
+        if len(liste_tickers) < int(nombre_titres):
+            st.error("Le nombre de titres doit etre inferieur ou egal au nombre de tickers.")
+        else:
+            with st.spinner("Telechargement des cours et calcul du portfolio..."):
+                try:
+                    donnees_momentum = backtest_momentum(
+                        liste_tickers,
+                        periode=int(periode_momentum),
+                        nombre_titres=int(nombre_titres),
+                        cout=float(cout),
+                        debut=str(debut),
+                        fin=str(fin) if fin else None,
+                    )
+                except Exception as erreur:
+                    st.error(str(erreur))
+                else:
+                    courbe_momentum = (
+                        (1 + donnees_momentum["strategie"]).cumprod() * 100
+                    )
+                    benchmark_momentum = (
+                        (1 + donnees_momentum["rendement"]).cumprod() * 100
+                    )
+                    figure_momentum = go.Figure()
+                    figure_momentum.add_trace(
+                        go.Scatter(
+                            x=courbe_momentum.index,
+                            y=courbe_momentum,
+                            name="Momentum",
+                        )
+                    )
+                    figure_momentum.add_trace(
+                        go.Scatter(
+                            x=benchmark_momentum.index,
+                            y=benchmark_momentum,
+                            name="Panier equilibre",
+                        )
+                    )
+                    figure_momentum.update_layout(
+                        title="Momentum mensuel",
+                        yaxis_title="Valeur (base 100)",
+                        xaxis_title="Date",
+                        hovermode="x unified",
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(figure_momentum, use_container_width=True)
+
+                    colonnes_momentum = st.columns(5)
+                    for colonne, (nom, valeur) in zip(
+                        colonnes_momentum,
+                        metriques(donnees_momentum["strategie"]).items(),
+                    ):
+                        colonne.metric(nom, valeur)
+
+                    poids_momentum = donnees_momentum.attrs["poids"]
+                    st.subheader("Poids du portefeuille")
+                    st.dataframe(
+                        poids_momentum.tail(126),
+                        use_container_width=True,
+                    )
+                    st.download_button(
+                        "Telecharger les resultats momentum CSV",
+                        data=donnees_momentum.to_csv(index=True).encode("utf-8"),
+                        file_name="momentum_portefeuille.csv",
+                        mime="text/csv",
+                        key="telecharger_momentum",
+                    )
 
 with onglet_documents:
     fichier = st.file_uploader(
