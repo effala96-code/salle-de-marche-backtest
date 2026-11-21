@@ -49,6 +49,40 @@ docker compose run --build --rm backtest
 
 Les resultats du conteneur sont conserves dans `backtest/`.
 
+## Atelier d'analyse dynamique
+
+Lancez le tableau de bord interactif depuis la racine du depot :
+
+```powershell
+python -m streamlit run src\app.py
+```
+
+L'interface ouvre par defaut `http://localhost:8501` et permet de :
+- executer un backtest avec les parametres de moyennes mobiles ;
+- comparer la strategie a l'achat-conservation ;
+- explorer les positions recentes ;
+- charger des fichiers CSV, TXT ou PDF ;
+- tracer interactivement deux colonnes numeriques d'un CSV.
+
+Avec Docker Compose :
+
+```powershell
+docker compose up dashboard
+```
+
+Ouvrez ensuite `http://localhost:8501`.
+
+## Atelier Jupyter
+
+Lancez JupyterLab ou ouvrez directement le notebook dans VS Code :
+
+```powershell
+jupyter lab
+```
+
+Le notebook dynamique est disponible dans
+`src/notebooks/atelier_analyse.ipynb`.
+
 ## Lire des documents depuis le terminal
 
 Le lecteur accepte les fichiers CSV, TXT et PDF.

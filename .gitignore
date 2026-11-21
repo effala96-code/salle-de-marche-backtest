@@ -1,7 +1,6 @@
 .venv/
 _ _pycache_ _/
 *.pyc
-.vscode
 .env
 .env.*
 !.env.example

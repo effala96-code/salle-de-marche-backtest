@@ -5,3 +5,14 @@ services:
       - .env
     volumes:
       - ./backtest:/app/backtest
+
+  dashboard:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./backtest:/app/backtest
+      - ./src:/app/src
+    command: ["python", "-m", "streamlit", "run", "src/app.py", "--server.address=0.0.0.0"]

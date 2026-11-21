@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Ouvrir le tableau de bord",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-m",
+        "streamlit",
+        "run",
+        "${workspaceFolder}\\src\\app.py"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Executer les tests",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "src",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Executer le backtest",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "src\\main.py"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

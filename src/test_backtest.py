@@ -1,4 +1,5 @@
 import unittest
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -98,6 +99,17 @@ class BacktestTests(unittest.TestCase):
             resultat = lire_pdf(fichier)
 
             self.assertIn("Page 1", resultat)
+
+    def test_dynamic_analysis_files_are_valid(self):
+        racine = Path(__file__).resolve().parent.parent
+        application = racine / "src" / "app.py"
+        atelier = racine / "src" / "notebooks" / "atelier_analyse.ipynb"
+
+        compile(application.read_text(encoding="utf-8"), str(application), "exec")
+        with atelier.open("r", encoding="utf-8") as fichier:
+            contenu_notebook = json.load(fichier)
+
+        self.assertEqual(contenu_notebook["nbformat"], 4)
 
 
 if __name__ == "__main__":
