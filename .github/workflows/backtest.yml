@@ -29,33 +29,38 @@ jobs:
       - name: Installer les dependances
         run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
 
+      - name: Enregistrer le noyau Jupyter
+        run: python -m ipykernel install --user --name python3 --display-name "Python 3"
+
       - name: Executer les tests
         working-directory: src
         run: python -m unittest test_backtest.py
 
-      - name: Executer le backtest
+      - name: Executer les backtests du notebook
         env:
           MPLBACKEND: Agg
-        run: python src/main.py
+        run: python -m papermill src/notebooks/notebooks.ipynb src/notebooks/notebooks_execute.ipynb
 
       - name: Archiver les resultats
         uses: actions/upload-artifact@v4
         with:
           name: resultats-backtest
-          path: src/results/
+          path: |
+            backtest/
+            src/notebooks/notebooks_execute.ipynb
           if-no-files-found: error
           retention-days: 30
 
-      - name: Enregistrer le graphique genere
+      - name: Enregistrer les resultats generes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/results
+          git add backtest
           if git diff --cached --quiet; then
-            echo "Aucun nouveau graphique a enregistrer."
+            echo "Aucun nouveau resultat a enregistrer."
           else
             git commit \
-              -m "Automatiser les resultats du backtest" \
+              -m "Automatiser les resultats des backtests" \
               -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
             git push
           fi
