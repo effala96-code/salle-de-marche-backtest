@@ -2,11 +2,22 @@ from strategy import backtest_moyennes
 from metrics import metriques
 from backtest import courbes
 from pathlib import Path
+from config import (
+    BACKTEST_LONG_WINDOW,
+    BACKTEST_SHORT_WINDOW,
+    BACKTEST_TICKER,
+    BACKTEST_TRANSACTION_COST,
+)
 
 
 if __name__ == "__main__":
     try:
-        donnees = backtest_moyennes("AI.PA")
+        donnees = backtest_moyennes(
+            ticker=BACKTEST_TICKER,
+            courte=BACKTEST_SHORT_WINDOW,
+            longue=BACKTEST_LONG_WINDOW,
+            cout=BACKTEST_TRANSACTION_COST,
+        )
     except ValueError as erreur:
         raise SystemExit(str(erreur)) from erreur
     print("Strategie :", metriques(donnees["strategie"]))
@@ -17,7 +28,10 @@ if __name__ == "__main__":
             "Strategie MM": donnees["strategie"],
             "Achat-conservation": donnees["rendement"],
         },
-        "Croisement de moyennes mobiles 20/50 - Air Liquide",
+        (
+            f"Croisement de moyennes mobiles "
+            f"{BACKTEST_SHORT_WINDOW}/{BACKTEST_LONG_WINDOW} - {BACKTEST_TICKER}"
+        ),
         dossier=dossier_resultats,
     )
     print("Graphique enregistré :", graphique)

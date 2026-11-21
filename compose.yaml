@@ -1,0 +1,7 @@
+services:
+  backtest:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./backtest:/app/backtest

@@ -39,6 +39,19 @@ jobs:
       - name: Executer les backtests du notebook
         env:
           MPLBACKEND: Agg
+          BACKTEST_TICKER: ${{ vars.BACKTEST_TICKER || 'AI.PA' }}
+          BACKTEST_SHORT_WINDOW: ${{ vars.BACKTEST_SHORT_WINDOW || '20' }}
+          BACKTEST_LONG_WINDOW: ${{ vars.BACKTEST_LONG_WINDOW || '50' }}
+          BACKTEST_TRANSACTION_COST: ${{ vars.BACKTEST_TRANSACTION_COST || '0.001' }}
+          BACKTEST_PERIOD_1_NAME: ${{ vars.BACKTEST_PERIOD_1_NAME || '2018-2020' }}
+          BACKTEST_PERIOD_1_START: ${{ vars.BACKTEST_PERIOD_1_START || '2018-01-01' }}
+          BACKTEST_PERIOD_1_END: ${{ vars.BACKTEST_PERIOD_1_END || '2021-01-01' }}
+          BACKTEST_PERIOD_2_NAME: ${{ vars.BACKTEST_PERIOD_2_NAME || '2021-2023' }}
+          BACKTEST_PERIOD_2_START: ${{ vars.BACKTEST_PERIOD_2_START || '2021-01-01' }}
+          BACKTEST_PERIOD_2_END: ${{ vars.BACKTEST_PERIOD_2_END || '2024-01-01' }}
+          BACKTEST_PERIOD_3_NAME: ${{ vars.BACKTEST_PERIOD_3_NAME || '2024-a-aujourd-hui' }}
+          BACKTEST_PERIOD_3_START: ${{ vars.BACKTEST_PERIOD_3_START || '2024-01-01' }}
+          BACKTEST_PERIOD_3_END: ${{ vars.BACKTEST_PERIOD_3_END }}
         run: python -m papermill src/notebooks/notebooks.ipynb src/notebooks/notebooks_execute.ipynb
 
       - name: Archiver les resultats
