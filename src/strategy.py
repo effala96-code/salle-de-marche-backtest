@@ -4,7 +4,14 @@ from backtest import courbes, appliquer_couts
 from pathlib import Path
 
 
-def backtest_moyennes(ticker="AI.PA", courte=20, longue=50, cout=0.001):
+def backtest_moyennes(
+    ticker="AI.PA",
+    courte=20,
+    longue=50,
+    cout=0.001,
+    debut="2018-01-01",
+    fin=None,
+):
     if not isinstance(courte, int) or courte <= 0:
         raise ValueError("La période courte doit être un entier strictement positif.")
     if not isinstance(longue, int) or longue <= courte:
@@ -12,7 +19,7 @@ def backtest_moyennes(ticker="AI.PA", courte=20, longue=50, cout=0.001):
     if cout < 0:
         raise ValueError("Le coût de transaction doit être positif ou nul.")
 
-    df = telecharger(ticker)
+    df = telecharger(ticker, debut=debut, fin=fin)
     if len(df) < longue:
         raise ValueError(
             f"Au moins {longue} observations sont nécessaires pour le backtest."

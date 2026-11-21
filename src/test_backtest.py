@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import pandas as pd
 import matplotlib
@@ -8,9 +9,30 @@ matplotlib.use("Agg")
 
 from backtest import appliquer_couts, courbes
 from metrics import metriques
+from strategy import backtest_moyennes
 
 
 class BacktestTests(unittest.TestCase):
+    def test_strategy_passes_requested_dates_to_data_download(self):
+        dates = pd.date_range("2020-01-01", periods=60, freq="B")
+        donnees = pd.DataFrame(
+            {"Close": [float(index + 100) for index in range(len(dates))]},
+            index=dates,
+        )
+
+        with patch("strategy.telecharger", return_value=donnees) as telecharger:
+            backtest_moyennes(
+                "AI.PA",
+                debut="2020-01-01",
+                fin="2021-01-01",
+            )
+
+        telecharger.assert_called_once_with(
+            "AI.PA",
+            debut="2020-01-01",
+            fin="2021-01-01",
+        )
+
     def test_transaction_cost_is_applied_once_per_position_change(self):
         position = pd.Series([0, 1, 1, 0])
         returns = pd.Series([0.10, 0.10, -0.10, 0.10])
