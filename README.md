@@ -48,3 +48,16 @@ docker compose run --build --rm backtest
 ```
 
 Les resultats du conteneur sont conserves dans `backtest/`.
+
+## Lire des documents depuis le terminal
+
+Le lecteur accepte les fichiers CSV, TXT et PDF.
+
+```powershell
+# Affiche un menu avec les documents trouves dans le depot
+python src\document_reader.py
+
+# Affiche directement un document precis
+python src\document_reader.py "backtest\synthese.csv"
+python src\document_reader.py "notes.txt"
+```

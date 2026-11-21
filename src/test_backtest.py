@@ -6,8 +6,10 @@ from unittest.mock import patch
 import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
+from pypdf import PdfWriter
 
 from backtest import appliquer_couts, courbes
+from document_reader import lire_csv, lire_document, lire_pdf
 from metrics import metriques
 from strategy import backtest_moyennes
 
@@ -59,6 +61,43 @@ class BacktestTests(unittest.TestCase):
             )
             self.assertTrue(Path(chemin).is_file())
             self.assertTrue(Path(chemin).stat().st_size > 0)
+
+    def test_document_reader_reads_csv_and_txt(self):
+        with TemporaryDirectory() as dossier:
+            dossier = Path(dossier)
+            csv = dossier / "test.csv"
+            txt = dossier / "test.txt"
+            csv.write_text("nom,valeur\nA,10\nB,20\n", encoding="utf-8")
+            txt.write_text("Premiere ligne\nDeuxieme ligne\n", encoding="utf-8")
+
+            csv_resultat = lire_csv(csv)
+            txt_resultat = lire_document(txt)
+
+            self.assertIn("A", csv_resultat)
+            self.assertIn("20", csv_resultat)
+            self.assertEqual(
+                txt_resultat,
+                "Premiere ligne\nDeuxieme ligne",
+            )
+
+    def test_document_reader_rejects_unsupported_format(self):
+        with TemporaryDirectory() as dossier:
+            fichier = Path(dossier) / "test.json"
+            fichier.write_text("{}", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                lire_document(fichier)
+
+    def test_document_reader_reads_pdf(self):
+        with TemporaryDirectory() as dossier:
+            fichier = Path(dossier) / "test.pdf"
+            writer = PdfWriter()
+            writer.add_blank_page(width=300, height=300)
+            with fichier.open("wb") as sortie:
+                writer.write(sortie)
+
+            resultat = lire_pdf(fichier)
+
+            self.assertIn("Page 1", resultat)
 
 
 if __name__ == "__main__":
