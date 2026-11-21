@@ -131,16 +131,3 @@ s'affichent dans l'onglet RSI; le tableau des bougies récentes peut être expor
 en CSV. Les barres Yahoo Finance peuvent être différées et restent inchangées
 hors séance. Les dates choisies servent à l'historique du backtest; le suivi
 intrajournalier couvre les cinq derniers jours.
-
-## Projet 2 - RSI et retour a la moyenne
-
-Dans l'onglet **Projet 2 - RSI** du dashboard, comparez les huit variantes :
-- RSI sur 7 ou 21 seances ;
-- seuils de survente/surachat 20/80 ou 40/60 ;
-- chaque configuration avec et sans filtre de tendance MM200.
-
-Le filtre MM200 autorise une nouvelle position acheteuse seulement si la
-cloture est au-dessus de sa moyenne mobile 200 seances. La strategie sort
-lorsque le RSI atteint le seuil haut. Les signaux sont decales d'une seance
-dans le backtest pour eviter d'utiliser une information avant sa disponibilite.
-Le tableau comparatif peut etre telecharge en CSV.
