@@ -19,6 +19,8 @@ from config import (
 from document_reader import lire_pdf
 from metrics import metriques
 from strategy import backtest_moyennes, signal_actuel
+from data import telecharger
+from rsi_strategy import comparer_strategies_rsi
 
 
 st.set_page_config(
@@ -58,8 +60,8 @@ with st.sidebar:
     debut = st.date_input("Debut", pd.Timestamp("2018-01-01"))
     fin = st.date_input("Fin", value=None)
 
-onglet_backtest, onglet_documents, onglet_csv = st.tabs(
-    ["Backtest", "Documents", "Donnees CSV"]
+onglet_backtest, onglet_rsi, onglet_documents, onglet_csv = st.tabs(
+    ["Backtest MM", "Projet 2 - RSI", "Documents", "Donnees CSV"]
 )
 
 with onglet_backtest:
@@ -146,6 +148,93 @@ with onglet_backtest:
                         ].tail(100),
                         use_container_width=True,
                     )
+
+with onglet_rsi:
+    st.subheader("RSI et retour a la moyenne")
+    st.caption(
+        "Comparaison RSI 7/21, seuils 20/80 et 40/60, "
+        "avec et sans filtre de tendance MM200."
+    )
+    debut_rsi = st.date_input(
+        "Debut de l'analyse RSI",
+        pd.Timestamp("2018-01-01"),
+        key="debut_rsi",
+    )
+    if st.button("Comparer les strategies RSI", type="primary"):
+        with st.spinner("Telechargement des cours et comparaison des 8 variantes..."):
+            try:
+                cours = telecharger(
+                    ticker.strip(),
+                    debut=str(debut_rsi),
+                    fin=str(fin) if fin else None,
+                )
+                resultats_rsi = comparer_strategies_rsi(
+                    cours,
+                    cout=float(cout),
+                )
+            except (ValueError, OSError) as erreur:
+                st.error(str(erreur))
+            else:
+                lignes = []
+                figure_rsi = go.Figure()
+                benchmark = (1 + cours["Close"].pct_change().fillna(0)).cumprod() * 100
+                figure_rsi.add_trace(
+                    go.Scatter(
+                        x=benchmark.index,
+                        y=benchmark,
+                        name="Achat-conservation",
+                    )
+                )
+                for nom, donnees_rsi in resultats_rsi.items():
+                    metriques_rsi = metriques(donnees_rsi["strategie"])
+                    entrees = int(
+                        donnees_rsi["position"]
+                        .diff()
+                        .fillna(donnees_rsi["position"])
+                        .gt(0)
+                        .sum()
+                    )
+                    lignes.append(
+                        {
+                            "Strategie": nom,
+                            "Entrees": entrees,
+                            **metriques_rsi,
+                        }
+                    )
+                    courbe = (1 + donnees_rsi["strategie"]).cumprod() * 100
+                    figure_rsi.add_trace(
+                        go.Scatter(
+                            x=courbe.index,
+                            y=courbe,
+                            name=nom,
+                        )
+                    )
+                lignes.append(
+                    {
+                        "Strategie": "Achat-conservation",
+                        "Entrees": "-",
+                        **metriques(benchmark.pct_change().fillna(0)),
+                    }
+                )
+                figure_rsi.update_layout(
+                    title=f"{ticker.upper()} - comparaison RSI et MM200",
+                    yaxis_title="Valeur (base 100)",
+                    xaxis_title="Date",
+                    hovermode="x unified",
+                    template="plotly_white",
+                )
+                st.plotly_chart(figure_rsi, use_container_width=True)
+                tableau_rsi = pd.DataFrame(lignes).set_index("Strategie")
+                st.dataframe(
+                    tableau_rsi.sort_values("Rendement total", ascending=False),
+                    use_container_width=True,
+                )
+                st.download_button(
+                    "Telecharger le comparatif CSV",
+                    data=tableau_rsi.to_csv().encode("utf-8"),
+                    file_name=f"{ticker.upper()}_comparaison_rsi.csv",
+                    mime="text/csv",
+                )
 
 with onglet_documents:
     fichier = st.file_uploader(

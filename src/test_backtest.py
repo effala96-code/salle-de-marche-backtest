@@ -13,9 +13,102 @@ from backtest import appliquer_couts, courbes
 from document_reader import lire_csv, lire_document, lire_pdf
 from metrics import metriques
 from strategy import backtest_moyennes, signal_actuel
+from rsi_strategy import (
+    backtest_rsi,
+    calculer_rsi,
+    comparer_strategies_rsi,
+    simuler_rsi,
+)
 
 
 class BacktestTests(unittest.TestCase):
+    def test_rsi_is_bounded_and_handles_flat_prices(self):
+        plat = pd.Series([100.0] * 30)
+        hausse = pd.Series([float(index + 1) for index in range(30)])
+
+        rsi_plat = calculer_rsi(plat, 7).dropna()
+        rsi_hausse = calculer_rsi(hausse, 7).dropna()
+
+        self.assertTrue((rsi_plat == 50).all())
+        self.assertTrue((rsi_hausse == 100).all())
+        self.assertTrue(rsi_plat.between(0, 100).all())
+
+    def test_rsi_positions_follow_thresholds_with_one_session_delay(self):
+        donnees = pd.DataFrame(
+            {"Close": [100.0, 99.0, 101.0, 102.0]},
+            index=pd.date_range("2026-01-01", periods=4),
+        )
+        rsi = pd.Series([10.0, 50.0, 90.0, 50.0], index=donnees.index)
+
+        with patch("rsi_strategy.calculer_rsi", return_value=rsi):
+            resultat = simuler_rsi(
+                donnees,
+                periode_rsi=2,
+                seuil_bas=20,
+                seuil_haut=80,
+            )
+
+        self.assertEqual(resultat["signal"].tolist(), [1, 1, 0, 0])
+        self.assertEqual(resultat["position"].tolist(), [0.0, 1.0, 1.0, 0.0])
+
+    def test_rsi_ma200_filter_blocks_oversold_buys_below_trend(self):
+        cours = pd.Series(
+            [300.0 - index for index in range(250)],
+            index=pd.date_range("2020-01-01", periods=250),
+        )
+        donnees = pd.DataFrame({"Close": cours})
+
+        sans_filtre = simuler_rsi(
+            donnees,
+            periode_rsi=7,
+            seuil_bas=20,
+            seuil_haut=80,
+        )
+        avec_filtre = simuler_rsi(
+            donnees,
+            periode_rsi=7,
+            seuil_bas=20,
+            seuil_haut=80,
+            filtre_mm200=True,
+        )
+
+        self.assertGreater(sans_filtre["signal"].sum(), 0)
+        self.assertEqual(avec_filtre["signal"].sum(), 0)
+
+    def test_rsi_ma200_filter_allows_oversold_buy_above_trend(self):
+        dates = pd.date_range("2020-01-01", periods=201)
+        donnees = pd.DataFrame(
+            {"Close": [100.0 + index for index in range(len(dates))]},
+            index=dates,
+        )
+        rsi = pd.Series(float("nan"), index=dates)
+        rsi.iloc[-2:] = [10.0, 50.0]
+
+        with patch("rsi_strategy.calculer_rsi", return_value=rsi):
+            resultat = simuler_rsi(
+                donnees,
+                periode_rsi=7,
+                seuil_bas=20,
+                seuil_haut=80,
+                filtre_mm200=True,
+            )
+
+        self.assertEqual(resultat["signal"].iloc[-2], 1)
+        self.assertEqual(resultat["position"].iloc[-1], 1)
+
+    def test_rsi_comparison_covers_all_requested_variants(self):
+        dates = pd.date_range("2020-01-01", periods=260)
+        donnees = pd.DataFrame(
+            {"Close": [100.0 + index * 0.1 for index in range(len(dates))]},
+            index=dates,
+        )
+
+        resultats = comparer_strategies_rsi(donnees)
+
+        self.assertEqual(len(resultats), 8)
+        self.assertTrue(any("RSI 7 - 20/80" in nom for nom in resultats))
+        self.assertTrue(any("RSI 21 - 40/60" in nom for nom in resultats))
+
     def test_current_signal_is_buy_or_sell(self):
         donnees = pd.DataFrame(
             {"Close": [100.0, 102.0], "position": [0, 1]},
@@ -114,12 +207,16 @@ class BacktestTests(unittest.TestCase):
         racine = Path(__file__).resolve().parent.parent
         application = racine / "src" / "app.py"
         atelier = racine / "src" / "notebooks" / "atelier_analyse.ipynb"
+        atelier_rsi = racine / "src" / "notebooks" / "projet2_rsi.ipynb"
 
         compile(application.read_text(encoding="utf-8"), str(application), "exec")
         with atelier.open("r", encoding="utf-8") as fichier:
             contenu_notebook = json.load(fichier)
+        with atelier_rsi.open("r", encoding="utf-8") as fichier:
+            contenu_notebook_rsi = json.load(fichier)
 
         self.assertEqual(contenu_notebook["nbformat"], 4)
+        self.assertEqual(contenu_notebook_rsi["nbformat"], 4)
 
 
 if __name__ == "__main__":

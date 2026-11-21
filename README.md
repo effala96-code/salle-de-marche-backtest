@@ -107,3 +107,33 @@ python src\buy_sell.py AI.PA
 Le programme affiche **ACHAT** ou **VENTE** selon la position quotidienne
 calculée avec les moyennes mobiles configurées. Ce signal est fourni à titre
 informatique uniquement et ne constitue pas un conseil financier personnalisé.
+
+## Projet 2 - RSI et retour à la moyenne
+
+Dans l'onglet **Projet 2 - RSI** du dashboard ou dans
+`src/notebooks/projet2_rsi.ipynb`, comparez les huit variantes :
+- RSI sur 7 ou 21 séances ;
+- seuils 20/80 ou 40/60 ;
+- chaque configuration avec et sans filtre de tendance MM200.
+
+Le filtre MM200 autorise une nouvelle position acheteuse seulement si la
+clôture est au-dessus de sa moyenne mobile 200 séances. La stratégie sort
+lorsque le RSI atteint le seuil haut. Les positions sont décalées d'une séance
+pour éviter l'utilisation anticipée des données, les coûts sont déduits et
+aucune vente à découvert n'est effectuée. Les résultats incluent le nombre
+d'entrées et un benchmark achat-conservation ; zéro entrée signifie qu'aucune
+survente exploitable n'a été détectée. Le comparatif CSV est enregistré dans
+`backtest/projet2_rsi_comparaison.csv`.
+
+## Projet 2 - RSI et retour a la moyenne
+
+Dans l'onglet **Projet 2 - RSI** du dashboard, comparez les huit variantes :
+- RSI sur 7 ou 21 seances ;
+- seuils de survente/surachat 20/80 ou 40/60 ;
+- chaque configuration avec et sans filtre de tendance MM200.
+
+Le filtre MM200 autorise une nouvelle position acheteuse seulement si la
+cloture est au-dessus de sa moyenne mobile 200 seances. La strategie sort
+lorsque le RSI atteint le seuil haut. Les signaux sont decales d'une seance
+dans le backtest pour eviter d'utiliser une information avant sa disponibilite.
+Le tableau comparatif peut etre telecharge en CSV.
