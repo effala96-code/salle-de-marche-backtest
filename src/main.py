@@ -1,4 +1,4 @@
-from strategy import backtest_moyennes
+from strategy import backtest_moyennes, signal_actuel
 from metrics import metriques
 from backtest import courbes
 from pathlib import Path
@@ -22,6 +22,11 @@ if __name__ == "__main__":
         raise SystemExit(str(erreur)) from erreur
     print("Strategie :", metriques(donnees["strategie"]))
     print("Achat-conservation :", metriques(donnees["rendement"]))
+    signal = signal_actuel(donnees)
+    print(
+        f"Signal actuel : {signal['action']} "
+        f"(cours {signal['cours']} EUR - {signal['date']})"
+    )
     dossier_resultats = Path(__file__).resolve().parent / "results"
     graphique = courbes(
         {

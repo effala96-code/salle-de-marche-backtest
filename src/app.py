@@ -18,7 +18,7 @@ from config import (
 )
 from document_reader import lire_pdf
 from metrics import metriques
-from strategy import backtest_moyennes
+from strategy import backtest_moyennes, signal_actuel
 
 
 st.set_page_config(
@@ -107,6 +107,18 @@ with onglet_backtest:
                         template="plotly_white",
                     )
                     st.plotly_chart(figure, use_container_width=True)
+
+                    signal = signal_actuel(donnees)
+                    if signal["action"] == "ACHAT":
+                        st.success(
+                            f"Signal actuel : ACHAT - {ticker.upper()} "
+                            f"a {signal['cours']} EUR ({signal['date']})"
+                        )
+                    else:
+                        st.error(
+                            f"Signal actuel : VENTE - {ticker.upper()} "
+                            f"a {signal['cours']} EUR ({signal['date']})"
+                        )
 
                     metrique_strategie = metriques(donnees["strategie"])
                     metrique_benchmark = metriques(donnees["rendement"])

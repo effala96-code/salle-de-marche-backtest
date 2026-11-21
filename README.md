@@ -95,3 +95,15 @@ python src\document_reader.py
 python src\document_reader.py "backtest\synthese.csv"
 python src\document_reader.py "notes.txt"
 ```
+
+## Signal achat ou vente
+
+Générez un signal indicatif pour AI.PA depuis le terminal :
+
+```powershell
+python src\buy_sell.py AI.PA
+```
+
+Le programme affiche **ACHAT** ou **VENTE** selon la position quotidienne
+calculée avec les moyennes mobiles configurées. Ce signal est fourni à titre
+informatique uniquement et ne constitue pas un conseil financier personnalisé.

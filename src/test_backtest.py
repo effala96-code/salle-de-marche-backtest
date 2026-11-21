@@ -12,10 +12,20 @@ from pypdf import PdfWriter
 from backtest import appliquer_couts, courbes
 from document_reader import lire_csv, lire_document, lire_pdf
 from metrics import metriques
-from strategy import backtest_moyennes
+from strategy import backtest_moyennes, signal_actuel
 
 
 class BacktestTests(unittest.TestCase):
+    def test_current_signal_is_buy_or_sell(self):
+        donnees = pd.DataFrame(
+            {"Close": [100.0, 102.0], "position": [0, 1]},
+            index=pd.to_datetime(["2026-11-20", "2026-11-21"]),
+        )
+        signal = signal_actuel(donnees)
+
+        self.assertIn(signal["action"], {"ACHAT", "VENTE"})
+        self.assertEqual(signal["action"], "ACHAT")
+
     def test_strategy_passes_requested_dates_to_data_download(self):
         dates = pd.date_range("2020-01-01", periods=60, freq="B")
         donnees = pd.DataFrame(

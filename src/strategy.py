@@ -42,6 +42,43 @@ def backtest_moyennes(
     return df
 
 
+def signal_actuel(donnees):
+    """Retourne le conseil actuel base sur la position decalee du croisement MM."""
+    if donnees is None or len(donnees) < 2:
+        raise ValueError("Au moins deux observations sont necessaires.")
+    if "position" not in donnees.columns:
+        raise ValueError("La colonne 'position' est absente des donnees.")
+
+    position = donnees["position"].dropna()
+    if len(position) < 2:
+        raise ValueError("Le signal actuel n'est pas encore disponible.")
+
+    precedente = int(position.iloc[-2])
+    actuelle = int(position.iloc[-1])
+    if actuelle == precedente:
+        action = "ACHAT" if actuelle == 1 else "VENTE"
+        if actuelle == 1:
+            libelle = "CONSERVER / ACHETER"
+        else:
+            libelle = "CONSERVER / ATTENDRE"
+    elif precedente == 0 and actuelle == 1:
+        action = "ACHAT"
+        libelle = "ACHAT"
+    else:
+        action = "VENTE"
+        libelle = "VENTE"
+
+    close = float(donnees["Close"].iloc[-1])
+    return {
+        "action": action,
+        "libelle": libelle,
+        "date": str(donnees.index[-1].date()),
+        "cours": round(close, 2),
+        "position_precedente": precedente,
+        "position_actuelle": actuelle,
+    }
+
+
 if __name__ == "__main__":
     try:
         donnees = backtest_moyennes("AI.PA")
