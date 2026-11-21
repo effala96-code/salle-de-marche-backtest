@@ -2,7 +2,7 @@ import unittest
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import matplotlib
@@ -10,6 +10,7 @@ matplotlib.use("Agg")
 from pypdf import PdfWriter
 
 from backtest import appliquer_couts, courbes
+from data import _telecharger_avec_chart_api, telecharger_intraday
 from document_reader import lire_csv, lire_document, lire_pdf
 from metrics import metriques
 from strategy import backtest_moyennes, signal_actuel
@@ -22,6 +23,53 @@ from rsi_strategy import (
 
 
 class BacktestTests(unittest.TestCase):
+    def test_intraday_download_requests_fifteen_minute_bars(self):
+        with patch("data.telecharger", return_value=pd.DataFrame()) as telecharger:
+            telecharger_intraday("AI.PA")
+
+        telecharger.assert_called_once()
+        self.assertEqual(telecharger.call_args.kwargs["intervalle"], "15m")
+
+    def test_intraday_chart_fallback_preserves_bar_times(self):
+        dates = pd.to_datetime(
+            ["2026-11-20 09:00", "2026-11-20 09:15"],
+            utc=True,
+        )
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            "chart": {
+                "result": [
+                    {
+                        "timestamp": [int(date.timestamp()) for date in dates],
+                        "indicators": {
+                            "quote": [
+                                {
+                                    "open": [100.0, 101.0],
+                                    "high": [101.0, 102.0],
+                                    "low": [99.0, 100.0],
+                                    "close": [100.5, 101.5],
+                                    "volume": [1000, 1200],
+                                }
+                            ],
+                            "adjclose": [{"adjclose": [100.5, 101.5]}],
+                        },
+                    }
+                ]
+            }
+        }
+        with patch("data.curl_requests.get", return_value=response):
+            cours = _telecharger_avec_chart_api(
+                "AI.PA",
+                "2026-11-20",
+                "2026-11-22",
+                intervalle="15m",
+            )
+
+        self.assertEqual(len(cours), 2)
+        self.assertEqual(cours.index[0].hour, 9)
+        self.assertEqual(cours.index[1].minute, 15)
+
     def test_rsi_is_bounded_and_handles_flat_prices(self):
         plat = pd.Series([100.0] * 30)
         hausse = pd.Series([float(index + 1) for index in range(30)])

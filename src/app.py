@@ -1,9 +1,11 @@
 from pathlib import Path
 import sys
+import time
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from curl_cffi.requests.exceptions import RequestException as CurlRequestException
 
 RACINE = Path(__file__).resolve().parent.parent
 SRC = Path(__file__).resolve().parent
@@ -19,7 +21,7 @@ from config import (
 from document_reader import lire_pdf
 from metrics import metriques
 from strategy import backtest_moyennes, signal_actuel
-from data import telecharger
+from data import telecharger, telecharger_intraday
 from rsi_strategy import comparer_strategies_rsi
 
 
@@ -155,86 +157,217 @@ with onglet_rsi:
         "Comparaison RSI 7/21, seuils 20/80 et 40/60, "
         "avec et sans filtre de tendance MM200."
     )
+    actualisation_auto = st.checkbox(
+        "Actualiser automatiquement le cours toutes les 15 minutes",
+        value=True,
+    )
+    st.caption(
+        "Le cours intrajournalier utilise des bougies de 15 minutes "
+        "sur les 5 derniers jours. L'historique du backtest suit les dates "
+        "choisies ci-dessous."
+    )
+
+    @st.fragment(run_every="15m" if actualisation_auto else None)
+    def afficher_cours_intraday():
+        symbole = ticker.strip().upper()
+        forcer_actualisation = st.button(
+            "Actualiser le cours maintenant",
+            key="actualiser_cours_intraday",
+        )
+        dernier_essai = st.session_state.get("heure_actualisation_intraday", 0)
+        changement_symbole = (
+            st.session_state.get("symbole_intraday") != symbole
+        )
+        actualisation_due = (
+            actualisation_auto and time.time() - dernier_essai >= 15 * 60
+        )
+        if forcer_actualisation or changement_symbole or actualisation_due:
+            try:
+                cours_intraday = telecharger_intraday(symbole, intervalle="15m")
+            except (ValueError, OSError, CurlRequestException) as erreur:
+                st.session_state["erreur_intraday"] = str(erreur)
+                st.session_state["heure_actualisation_intraday"] = time.time()
+            else:
+                st.session_state["cours_intraday"] = cours_intraday
+                st.session_state["symbole_intraday"] = symbole
+                st.session_state["heure_actualisation_intraday"] = time.time()
+                st.session_state.pop("erreur_intraday", None)
+
+        if st.session_state.get("erreur_intraday"):
+            st.warning(
+                f"Impossible d'actualiser le cours : "
+                f"{st.session_state['erreur_intraday']}"
+            )
+        cours_intraday = st.session_state.get("cours_intraday")
+        if (
+            cours_intraday is None
+            or st.session_state.get("symbole_intraday") != symbole
+            or cours_intraday.empty
+        ):
+            st.info("Aucun cours intrajournalier disponible pour ce ticker.")
+            return
+
+        clotures = cours_intraday["Close"].dropna()
+        if clotures.empty:
+            st.info("Aucun cours de clôture intrajournalier disponible.")
+            return
+        variation = (
+            (clotures.iloc[-1] / clotures.iloc[-2] - 1) * 100
+            if len(clotures) > 1 and clotures.iloc[-2] != 0
+            else None
+        )
+        valeur_variation = f"{variation:.2f}%" if variation is not None else None
+        st.metric(
+            f"Dernier cours - {symbole}",
+            f"{clotures.iloc[-1]:.2f}",
+            delta=valeur_variation,
+        )
+        heure_maj = time.strftime(
+            "%d/%m/%Y %H:%M:%S",
+            time.localtime(st.session_state["heure_actualisation_intraday"]),
+        )
+        st.caption(
+            f"Dernière actualisation : {heure_maj}. "
+            "Les données Yahoo Finance peuvent être différées; "
+            "hors séance, le dernier cours disponible est conservé."
+        )
+        st.dataframe(cours_intraday.tail(10), use_container_width=True)
+        st.download_button(
+            "Telecharger les cours intrajournaliers CSV",
+            data=cours_intraday.to_csv(index=True).encode("utf-8"),
+            file_name=f"{symbole}_cours_intraday.csv",
+            mime="text/csv",
+            key="telecharger_cours_intraday",
+        )
+
+    afficher_cours_intraday()
+
     debut_rsi = st.date_input(
         "Debut de l'analyse RSI",
         pd.Timestamp("2018-01-01"),
         key="debut_rsi",
     )
-    if st.button("Comparer les strategies RSI", type="primary"):
-        with st.spinner("Telechargement des cours et comparaison des 8 variantes..."):
+    cles_cours_rsi = (
+        ticker.strip().upper(),
+        str(debut_rsi),
+        str(fin) if fin else None,
+    )
+    if st.button("Charger / actualiser les cours"):
+        st.session_state.pop("cles_cours_rsi", None)
+        st.session_state.pop("cles_resultats_rsi", None)
+        st.session_state.pop("resultats_rsi", None)
+        with st.spinner("Telechargement des cours..."):
             try:
-                cours = telecharger(
-                    ticker.strip(),
+                st.session_state["cours_rsi"] = telecharger(
+                    cles_cours_rsi[0],
                     debut=str(debut_rsi),
                     fin=str(fin) if fin else None,
                 )
-                resultats_rsi = comparer_strategies_rsi(
-                    cours,
-                    cout=float(cout),
-                )
+                st.session_state["cles_cours_rsi"] = cles_cours_rsi
             except (ValueError, OSError) as erreur:
                 st.error(str(erreur))
-            else:
-                lignes = []
-                figure_rsi = go.Figure()
-                benchmark = (1 + cours["Close"].pct_change().fillna(0)).cumprod() * 100
-                figure_rsi.add_trace(
-                    go.Scatter(
-                        x=benchmark.index,
-                        y=benchmark,
-                        name="Achat-conservation",
-                    )
+
+    cours_charge = (
+        st.session_state.get("cles_cours_rsi") == cles_cours_rsi
+    )
+    if cours_charge:
+        cours_rsi = st.session_state["cours_rsi"]
+        st.caption(
+            f"{len(cours_rsi):,} séances chargées pour {ticker.upper()} "
+            f"(du {cours_rsi.index[0].date()} au {cours_rsi.index[-1].date()})."
+        )
+        st.dataframe(cours_rsi.tail(20), use_container_width=True)
+        st.download_button(
+            "Telecharger les cours en CSV",
+            data=cours_rsi.to_csv(index=True).encode("utf-8"),
+            file_name=f"{ticker.upper()}_cours.csv",
+            mime="text/csv",
+            key="telecharger_cours_rsi",
+        )
+    else:
+        st.info("Chargez les cours pour afficher leur aperçu et lancer l'analyse.")
+
+    if st.button("Comparer les strategies RSI", type="primary"):
+        if not cours_charge:
+            st.warning("Chargez d'abord les cours correspondant au ticker et aux dates.")
+        else:
+            try:
+                st.session_state["resultats_rsi"] = comparer_strategies_rsi(
+                    st.session_state["cours_rsi"],
+                    cout=float(cout),
                 )
-                for nom, donnees_rsi in resultats_rsi.items():
-                    metriques_rsi = metriques(donnees_rsi["strategie"])
-                    entrees = int(
-                        donnees_rsi["position"]
-                        .diff()
-                        .fillna(donnees_rsi["position"])
-                        .gt(0)
-                        .sum()
-                    )
-                    lignes.append(
-                        {
-                            "Strategie": nom,
-                            "Entrees": entrees,
-                            **metriques_rsi,
-                        }
-                    )
-                    courbe = (1 + donnees_rsi["strategie"]).cumprod() * 100
-                    figure_rsi.add_trace(
-                        go.Scatter(
-                            x=courbe.index,
-                            y=courbe,
-                            name=nom,
-                        )
-                    )
-                lignes.append(
-                    {
-                        "Strategie": "Achat-conservation",
-                        "Entrees": "-",
-                        **metriques(benchmark.pct_change().fillna(0)),
-                    }
+                st.session_state["cles_resultats_rsi"] = (
+                    cles_cours_rsi,
+                    float(cout),
                 )
-                figure_rsi.update_layout(
-                    title=f"{ticker.upper()} - comparaison RSI et MM200",
-                    yaxis_title="Valeur (base 100)",
-                    xaxis_title="Date",
-                    hovermode="x unified",
-                    template="plotly_white",
+            except ValueError as erreur:
+                st.error(str(erreur))
+
+    cles_resultats = (cles_cours_rsi, float(cout))
+    if st.session_state.get("cles_resultats_rsi") == cles_resultats:
+        cours_rsi = st.session_state["cours_rsi"]
+        resultats_rsi = st.session_state["resultats_rsi"]
+        lignes = []
+        figure_rsi = go.Figure()
+        benchmark = (1 + cours_rsi["Close"].pct_change().fillna(0)).cumprod() * 100
+        figure_rsi.add_trace(
+            go.Scatter(
+                x=benchmark.index,
+                y=benchmark,
+                name="Achat-conservation",
+            )
+        )
+        for nom, donnees_rsi in resultats_rsi.items():
+            metriques_rsi = metriques(donnees_rsi["strategie"])
+            entrees = int(
+                donnees_rsi["position"]
+                .diff()
+                .fillna(donnees_rsi["position"])
+                .gt(0)
+                .sum()
+            )
+            lignes.append(
+                {
+                    "Strategie": nom,
+                    "Entrees": entrees,
+                    **metriques_rsi,
+                }
+            )
+            courbe = (1 + donnees_rsi["strategie"]).cumprod() * 100
+            figure_rsi.add_trace(
+                go.Scatter(
+                    x=courbe.index,
+                    y=courbe,
+                    name=nom,
                 )
-                st.plotly_chart(figure_rsi, use_container_width=True)
-                tableau_rsi = pd.DataFrame(lignes).set_index("Strategie")
-                st.dataframe(
-                    tableau_rsi.sort_values("Rendement total", ascending=False),
-                    use_container_width=True,
-                )
-                st.download_button(
-                    "Telecharger le comparatif CSV",
-                    data=tableau_rsi.to_csv().encode("utf-8"),
-                    file_name=f"{ticker.upper()}_comparaison_rsi.csv",
-                    mime="text/csv",
-                )
+            )
+        lignes.append(
+            {
+                "Strategie": "Achat-conservation",
+                "Entrees": "-",
+                **metriques(benchmark.pct_change().fillna(0)),
+            }
+        )
+        figure_rsi.update_layout(
+            title=f"{ticker.upper()} - comparaison RSI et MM200",
+            yaxis_title="Valeur (base 100)",
+            xaxis_title="Date",
+            hovermode="x unified",
+            template="plotly_white",
+        )
+        st.plotly_chart(figure_rsi, use_container_width=True)
+        tableau_rsi = pd.DataFrame(lignes).set_index("Strategie")
+        st.dataframe(
+            tableau_rsi.sort_values("Rendement total", ascending=False),
+            use_container_width=True,
+        )
+        st.download_button(
+            "Telecharger le comparatif CSV",
+            data=tableau_rsi.to_csv().encode("utf-8"),
+            file_name=f"{ticker.upper()}_comparaison_rsi.csv",
+            mime="text/csv",
+            key="telecharger_comparatif_rsi",
+        )
 
 with onglet_documents:
     fichier = st.file_uploader(

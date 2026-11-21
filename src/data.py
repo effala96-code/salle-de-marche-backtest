@@ -5,10 +5,12 @@ from curl_cffi import requests as curl_requests
 from datetime import timedelta
 
 
-def telecharger(ticker, debut="2018-01-01", fin=None):
+def telecharger(ticker, debut="2018-01-01", fin=None, intervalle="1d"):
     """Télécharge les cours de clôture ajustés d'un titre."""
     if not ticker or not isinstance(ticker, str):
         raise ValueError("Le ticker doit être une chaîne non vide.")
+    if intervalle not in {"1d", "1wk", "1mo", "1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h"}:
+        raise ValueError(f"Intervalle de cours non pris en charge : {intervalle}")
     try:
         debut_dt = pd.Timestamp(debut)
         fin_dt = pd.Timestamp(fin) if fin else pd.Timestamp.now()
@@ -37,6 +39,7 @@ def telecharger(ticker, debut="2018-01-01", fin=None):
             ticker,
             start=debut,
             end=fin,
+            interval=intervalle,
             auto_adjust=True,
             progress=False,
             session=session,
@@ -48,7 +51,7 @@ def telecharger(ticker, debut="2018-01-01", fin=None):
 
     if df.empty:
         try:
-            df = _telecharger_avec_chart_api(ticker, debut, fin)
+            df = _telecharger_avec_chart_api(ticker, debut, fin, intervalle)
         except ValueError as fallback_error:
             if primary_error:
                 raise ValueError(
@@ -70,7 +73,20 @@ def telecharger(ticker, debut="2018-01-01", fin=None):
     return df
 
 
-def _telecharger_avec_chart_api(ticker, debut, fin):
+def telecharger_intraday(ticker, intervalle="15m"):
+    """Telecharge les dernieres bougies intrajournalieres pour le dashboard."""
+    maintenant = pd.Timestamp.now().normalize()
+    debut = (maintenant - pd.DateOffset(days=4)).strftime("%Y-%m-%d")
+    fin = (maintenant + pd.DateOffset(days=1)).strftime("%Y-%m-%d")
+    return telecharger(
+        ticker,
+        debut=debut,
+        fin=fin,
+        intervalle=intervalle,
+    )
+
+
+def _telecharger_avec_chart_api(ticker, debut, fin, intervalle="1d"):
     """Repli direct sur l'API Yahoo Chart lorsque yfinance échoue."""
     debut_dt = pd.Timestamp(debut).tz_localize("UTC")
     fin_dt = (
@@ -86,7 +102,7 @@ def _telecharger_avec_chart_api(ticker, debut, fin):
         params={
             "period1": int(debut_dt.timestamp()),
             "period2": int(fin_dt.timestamp()),
-            "interval": "1d",
+            "interval": intervalle,
             "events": "div,splits",
         },
         impersonate="chrome",
@@ -125,7 +141,9 @@ def _telecharger_avec_chart_api(ticker, debut, fin):
         },
         index=pd.to_datetime(timestamps, unit="s", utc=True),
     )
-    df.index = df.index.tz_localize(None).normalize()
+    df.index = df.index.tz_localize(None)
+    if intervalle in {"1d", "1wk", "1mo"}:
+        df.index = df.index.normalize()
     return df.dropna(subset=["Close"])
 
 

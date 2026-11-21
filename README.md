@@ -125,6 +125,13 @@ d'entrées et un benchmark achat-conservation ; zéro entrée signifie qu'aucune
 survente exploitable n'a été détectée. Le comparatif CSV est enregistré dans
 `backtest/projet2_rsi_comparaison.csv`.
 
+Dans le dashboard, les cours intrajournaliers sont actualisés toutes les
+15 minutes tant que la page reste ouverte. Le dernier cours et sa variation
+s'affichent dans l'onglet RSI; le tableau des bougies récentes peut être exporté
+en CSV. Les barres Yahoo Finance peuvent être différées et restent inchangées
+hors séance. Les dates choisies servent à l'historique du backtest; le suivi
+intrajournalier couvre les cinq derniers jours.
+
 ## Projet 2 - RSI et retour a la moyenne
 
 Dans l'onglet **Projet 2 - RSI** du dashboard, comparez les huit variantes :
