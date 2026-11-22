@@ -24,6 +24,7 @@ from strategy import backtest_moyennes, signal_actuel
 from data import telecharger, telecharger_intraday
 from rsi_strategy import comparer_strategies_rsi
 from momentum_strategy import backtest_momentum
+from quantum_belief_strategy import UNIVERS_TITRES, backtest_revision_quantique
 
 
 st.set_page_config(
@@ -67,6 +68,7 @@ with st.sidebar:
     onglet_backtest,
     onglet_rsi,
     onglet_momentum,
+    onglet_quantum,
     onglet_documents,
     onglet_csv,
 ) = st.tabs(
@@ -74,6 +76,7 @@ with st.sidebar:
         "Backtest MM",
         "Projet 2 - RSI",
         "Projet 3 - Momentum",
+        "Projet 4 - Finance quantique",
         "Documents",
         "Donnees CSV",
     ]
@@ -481,6 +484,167 @@ with onglet_momentum:
                         file_name="momentum_portefeuille.csv",
                         mime="text/csv",
                         key="telecharger_momentum",
+                    )
+
+with onglet_quantum:
+    st.subheader("Finance quantique-inspirée : révision de croyances")
+    st.caption(
+        "Prototype pédagogique non validé pour investir. Les opérateurs "
+        "non commutatifs combinent momentum et tendance; le signal n'est pas "
+        "un conseil financier."
+    )
+    tickers_quantum_defaut = ", ".join(
+        ticker for ticker, _ in UNIVERS_TITRES
+    )
+    tickers_quantum = st.text_input(
+        "Univers de titres (tickers séparés par des virgules)",
+        value=tickers_quantum_defaut,
+        key="tickers_quantum",
+    )
+    colonnes_quantum = st.columns(3)
+    with colonnes_quantum[0]:
+        fenetre_momentum_quantum = st.number_input(
+            "Fenêtre momentum (séances)",
+            min_value=20,
+            max_value=500,
+            value=126,
+            step=1,
+            key="fenetre_momentum_quantum",
+        )
+    with colonnes_quantum[1]:
+        fenetre_tendance_quantum = st.number_input(
+            "Fenêtre tendance (séances)",
+            min_value=30,
+            max_value=500,
+            value=200,
+            step=1,
+            key="fenetre_tendance_quantum",
+        )
+    with colonnes_quantum[2]:
+        memoire_quantum = st.number_input(
+            "Mémoire de croyance",
+            min_value=0.0,
+            max_value=0.99,
+            value=0.95,
+            step=0.05,
+            key="memoire_quantum",
+        )
+
+    st.markdown(
+        "La méthode compare les révisions **momentum → tendance** et "
+        "**tendance → momentum**. Elle n'achète qu'en cas d'accord des deux "
+        "ordres, vend si les deux indiquent une baisse, sinon conserve la "
+        "position précédente. Le comparatif classique moyenne les deux "
+        "probabilités avant d'appliquer les mêmes seuils."
+    )
+    if st.button("Tester la révision non commutative", type="primary"):
+        liste_tickers_quantum = [
+            symbole.strip().upper()
+            for symbole in tickers_quantum.split(",")
+            if symbole.strip()
+        ]
+        if not liste_tickers_quantum:
+            st.error("Saisissez au moins un ticker.")
+        else:
+            with st.spinner("Téléchargement des cours et backtest..."):
+                try:
+                    resultat_quantum = backtest_revision_quantique(
+                        tickers=liste_tickers_quantum,
+                        debut=str(debut),
+                        fin=str(fin) if fin else None,
+                        momentum_window=int(fenetre_momentum_quantum),
+                        trend_window=int(fenetre_tendance_quantum),
+                        memoire=float(memoire_quantum),
+                        cout=float(cout),
+                    )
+                except (ValueError, OSError, CurlRequestException) as erreur:
+                    st.error(str(erreur))
+                else:
+                    cumul_quantum = (
+                        (1 + resultat_quantum["strategie_quantique"]).cumprod()
+                        * 100
+                    )
+                    cumul_classique = (
+                        (1 + resultat_quantum["strategie_classique"]).cumprod()
+                        * 100
+                    )
+                    cumul_benchmark = (
+                        (1 + resultat_quantum["benchmark_equipondere"]).cumprod()
+                        * 100
+                    )
+                    figure_quantum = go.Figure()
+                    figure_quantum.add_trace(
+                        go.Scatter(
+                            x=cumul_quantum.index,
+                            y=cumul_quantum,
+                            name="Révision non commutative",
+                        )
+                    )
+                    figure_quantum.add_trace(
+                        go.Scatter(
+                            x=cumul_classique.index,
+                            y=cumul_classique,
+                            name="Fusion classique",
+                        )
+                    )
+                    figure_quantum.add_trace(
+                        go.Scatter(
+                            x=cumul_benchmark.index,
+                            y=cumul_benchmark,
+                            name="Achat-conservation équipondéré",
+                        )
+                    )
+                    figure_quantum.update_layout(
+                        title="Projet 4 - Révision non commutative",
+                        yaxis_title="Valeur (base 100)",
+                        xaxis_title="Date",
+                        hovermode="x unified",
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(figure_quantum, use_container_width=True)
+
+                    tableau_quantum = pd.DataFrame(
+                        {
+                            "Révision non commutative": metriques(
+                                resultat_quantum["strategie_quantique"]
+                            ),
+                            "Fusion classique": metriques(
+                                resultat_quantum["strategie_classique"]
+                            ),
+                            "Achat-conservation équipondéré": metriques(
+                                resultat_quantum["benchmark_equipondere"]
+                            ),
+                        }
+                    )
+                    st.dataframe(tableau_quantum, use_container_width=True)
+                    st.caption(
+                        f"Période effectivement testée : "
+                        f"{resultat_quantum.index[0].date()} — "
+                        f"{resultat_quantum.index[-1].date()}. "
+                        "Les frais de transaction sont inclus dans les deux stratégies."
+                    )
+                    tableau_decisions = pd.DataFrame(
+                        [
+                            {
+                                "Ticker": symbole,
+                                "Décision": resultat_quantum[
+                                    f"decision_{symbole}"
+                                ].iloc[-1],
+                                "Position appliquée (décalée)": resultat_quantum[
+                                    f"position_quantique_{symbole}"
+                                ].iloc[-1],
+                            }
+                            for symbole in liste_tickers_quantum
+                        ]
+                    ).set_index("Ticker")
+                    st.subheader("Dernières décisions du modèle")
+                    st.dataframe(tableau_decisions, use_container_width=True)
+                    st.download_button(
+                        "Télécharger les résultats du Projet 4",
+                        data=resultat_quantum.to_csv(index=True).encode("utf-8"),
+                        file_name="projet4_finance_quantique.csv",
+                        mime="text/csv",
+                        key="telecharger_projet4",
                     )
 
 with onglet_documents:

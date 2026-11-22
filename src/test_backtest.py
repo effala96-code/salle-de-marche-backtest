@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
+import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
@@ -25,6 +26,13 @@ from momentum_strategy import (
     calculer_momentum,
     calculer_poids_momentum,
     simuler_momentum,
+)
+from quantum_belief_strategy import (
+    UNIVERS_TITRES,
+    _revision_luders,
+    backtest_revision_quantique,
+    calculer_croyances,
+    simuler_revision_quantique,
 )
 
 
@@ -237,6 +245,79 @@ class BacktestTests(unittest.TestCase):
                 debut="2020-01-01",
             )
 
+    def test_noncommutative_belief_updates_depend_on_evidence_order(self):
+        etat_initial = np.eye(2) / 2
+        preuve_momentum = _revision_luders(etat_initial, 0.8, 0.0)
+        croyance_mt = _revision_luders(
+            preuve_momentum,
+            0.7,
+            np.deg2rad(45),
+        )
+        preuve_tendance = _revision_luders(
+            etat_initial,
+            0.7,
+            np.deg2rad(45),
+        )
+        croyance_tm = _revision_luders(preuve_tendance, 0.8, 0.0)
+
+        self.assertNotAlmostEqual(
+            float(croyance_mt[0, 0]),
+            float(croyance_tm[0, 0]),
+        )
+        self.assertAlmostEqual(float(np.trace(croyance_mt)), 1.0)
+        self.assertAlmostEqual(float(np.trace(croyance_tm)), 1.0)
+
+    def test_quantum_strategy_uses_previous_session_signal(self):
+        dates = pd.bdate_range("2020-01-01", periods=280)
+        cours = pd.DataFrame(
+            {
+                "A": [100.0 + index * 1.2 for index in range(280)],
+                "B": [100.0 + index * 0.8 for index in range(280)],
+            },
+            index=dates,
+        )
+        resultat = simuler_revision_quantique(
+            cours,
+            momentum_window=20,
+            trend_window=30,
+            cout=0,
+        )
+        poids = resultat.attrs["poids_quantique"]
+        rendements = cours.pct_change().fillna(0)
+        attendu = (poids * rendements).sum(axis=1)
+
+        self.assertTrue((poids.iloc[0] == 0).all())
+        self.assertTrue(
+            np.allclose(resultat["strategie_quantique"], attendu)
+        )
+        self.assertTrue(
+            (resultat["exposition_quantique"].between(0, 1)).all()
+        )
+        self.assertTrue(
+            {"strategie_classique", "benchmark_equipondere"}.issubset(
+                resultat.columns
+            )
+        )
+
+    def test_quantum_backtest_defaults_to_current_top_ten(self):
+        tickers = [ticker for ticker, _ in UNIVERS_TITRES]
+        dates = pd.bdate_range("2020-01-01", periods=220)
+        historique = pd.DataFrame(
+            {"Close": [100.0 + index for index in range(220)]},
+            index=dates,
+        )
+        donnees = {ticker: historique for ticker in tickers}
+
+        resultat = backtest_revision_quantique(
+            donnees=donnees,
+            momentum_window=20,
+            trend_window=30,
+        )
+
+        self.assertEqual(len(tickers), 10)
+        self.assertIn("strategie_quantique", resultat.columns)
+        self.assertTrue(all(f"decision_{ticker}" in resultat for ticker in tickers))
+
     def test_current_signal_is_buy_or_sell(self):
         donnees = pd.DataFrame(
             {"Close": [100.0, 102.0], "position": [0, 1]},
@@ -337,6 +418,7 @@ class BacktestTests(unittest.TestCase):
         atelier = racine / "src" / "notebooks" / "atelier_analyse.ipynb"
         atelier_rsi = racine / "src" / "notebooks" / "projet2_rsi.ipynb"
         atelier_momentum = racine / "src" / "notebooks" / "projet3_momentum.ipynb"
+        atelier_quantum = racine / "src" / "notebooks" / "projet4_finance_quantique.ipynb"
 
         compile(application.read_text(encoding="utf-8"), str(application), "exec")
         with atelier.open("r", encoding="utf-8") as fichier:
@@ -345,10 +427,20 @@ class BacktestTests(unittest.TestCase):
             contenu_notebook_rsi = json.load(fichier)
         with atelier_momentum.open("r", encoding="utf-8") as fichier:
             contenu_notebook_momentum = json.load(fichier)
+        with atelier_quantum.open("r", encoding="utf-8") as fichier:
+            contenu_notebook_quantum = json.load(fichier)
 
         self.assertEqual(contenu_notebook["nbformat"], 4)
         self.assertEqual(contenu_notebook_rsi["nbformat"], 4)
         self.assertEqual(contenu_notebook_momentum["nbformat"], 4)
+        self.assertEqual(contenu_notebook_quantum["nbformat"], 4)
+        for cellule in contenu_notebook_quantum["cells"]:
+            if cellule["cell_type"] == "code":
+                compile(
+                    "".join(cellule["source"]),
+                    "projet4_finance_quantique.ipynb",
+                    "exec",
+                )
 
 
 if __name__ == "__main__":

@@ -141,3 +141,26 @@ des virgules. A la fin de chaque mois, la stratégie calcule
 `nlargest(3)` et leur attribue un poids égal. Les poids sont conservés jusqu'au
 mois suivant puis décalés d'une séance pour éviter tout biais d'anticipation.
 Les coûts sont déduits lors des rotations du portefeuille.
+
+## Projet 4 - Finance quantique-inspirée
+
+L'onglet **Projet 4 - Finance quantique** du dashboard et le notebook
+`src/notebooks/projet4_finance_quantique.ipynb` testent une révision de croyances
+à deux preuves : momentum sur 126 séances et tendance sur 200 séances. Les
+preuves sont représentées par des effets matriciels exprimés dans des bases
+différentes; la mise à jour de Lüders rend possible un effet d'ordre entre
+`momentum → tendance` et `tendance → momentum`. Les deux ordres doivent
+confirmer l'achat ou la vente; une fusion classique des probabilités sert de
+témoin. Les stratégies sont comparées à un panier équipondéré, avec décalage
+d'une séance et coûts de transaction.
+
+L'univers de démonstration est basé sur les dix plus grandes sociétés cotées
+par capitalisation observées le 22 novembre 2026 selon
+[CompaniesMarketCap](https://companiesmarketcap.com/). SpaceX est exclue car
+non cotée. La liste est un instantané actuel, pas un univers historique; le
+biais de survivance et les limites expérimentales sont détaillés dans le
+notebook. « Quantique-inspiré » est une analogie mathématique, sans calcul
+quantique ni validation de performance financière. Les sorties ACHAT/VENTE
+sont pédagogiques et ne constituent pas des conseils d'investissement.
+Le rapport du premier backtest réel, ses résultats comparatifs et ses limites
+sont consignés dans `backtest/projet4_finance_quantique_rapport.md`.
