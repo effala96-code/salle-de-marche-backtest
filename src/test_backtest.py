@@ -34,6 +34,12 @@ from quantum_belief_strategy import (
     calculer_croyances,
     simuler_revision_quantique,
 )
+from stress_testing import (
+    SCENARIOS_SYNTHETIQUES,
+    _mesures,
+    creer_choc_synthetique,
+    lancer_etude_stress,
+)
 
 
 class BacktestTests(unittest.TestCase):
@@ -298,6 +304,40 @@ class BacktestTests(unittest.TestCase):
                 resultat.columns
             )
         )
+        self.assertIn("strategie_quantique_robuste", resultat.columns)
+        self.assertTrue(
+            resultat["exposition_quantique_robuste"].between(0, 1).all()
+        )
+        self.assertTrue((resultat["volatilite_prevue"].dropna() >= 0).all())
+
+    def test_drawdown_breaker_flattens_risk_controlled_portfolio_after_gap(self):
+        dates = pd.bdate_range("2021-01-01", periods=600)
+        positions = np.arange(len(dates))
+        cours = 100.0 * np.exp(positions * 0.002) * (
+            1 + 0.01 * np.sin(positions / 3)
+        )
+        cours[450:] = cours[449] * 0.70
+        donnees = pd.DataFrame(
+            {"A": cours, "B": cours * 1.1, "C": cours * 0.8},
+            index=dates,
+        )
+
+        resultat = simuler_revision_quantique(
+            donnees,
+            momentum_window=40,
+            trend_window=60,
+            fenetre_regime=60,
+            fenetre_volatilite=20,
+            volatilite_cible=0.08,
+            drawdown_max=0.10,
+        )
+
+        self.assertTrue(resultat["exposition_quantique"].iloc[440:450].gt(0).all())
+        self.assertTrue(resultat["coupe_circuit_quantique"].iloc[451:].any())
+        self.assertEqual(resultat["exposition_quantique_robuste"].iloc[451], 0)
+        self.assertTrue(
+            resultat["exposition_quantique_robuste"].between(0, 1).all()
+        )
 
     def test_quantum_backtest_defaults_to_current_top_ten(self):
         tickers = [ticker for ticker, _ in UNIVERS_TITRES]
@@ -317,6 +357,68 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(len(tickers), 10)
         self.assertIn("strategie_quantique", resultat.columns)
         self.assertTrue(all(f"decision_{ticker}" in resultat for ticker in tickers))
+
+    def test_synthetic_stress_scenarios_apply_expected_price_shocks(self):
+        dates = pd.bdate_range("2020-01-01", periods=100)
+        cours = pd.DataFrame(
+            {"A": 100.0, "B": 200.0},
+            index=dates,
+        )
+
+        krach = creer_choc_synthetique(
+            cours,
+            "Krach instantané -30 %",
+            position_debut=20,
+        )
+        baisse = creer_choc_synthetique(
+            cours,
+            "Marché baissier -40 % sur 63 séances",
+            position_debut=20,
+        )
+        whipsaw = creer_choc_synthetique(
+            cours,
+            "Whipsaw extrême sur 5 séances",
+            position_debut=20,
+        )
+
+        self.assertAlmostEqual(krach["A"].iloc[20] / cours["A"].iloc[20], 0.70)
+        self.assertAlmostEqual(baisse["A"].iloc[83] / cours["A"].iloc[83], 0.60)
+        self.assertLess(whipsaw["A"].iloc[25] / cours["A"].iloc[25], 0.85)
+        self.assertEqual(len(SCENARIOS_SYNTHETIQUES), 4)
+
+    def test_stress_drawdown_counts_loss_on_first_session(self):
+        mesures = _mesures(
+            pd.Series([-0.30, 0.10]),
+            pd.Series([1.0, 1.0]),
+        )
+
+        self.assertAlmostEqual(mesures["perte_max_pct"], -30.0)
+
+    def test_stress_study_covers_history_synthetic_shocks_and_higher_costs(self):
+        dates = pd.bdate_range("2020-01-01", periods=500)
+        rng = np.random.default_rng(42)
+        rendements = rng.normal(0.0003, 0.015, size=(500, 4))
+        cours = pd.DataFrame(
+            100 * (1 + rendements).cumprod(axis=0),
+            index=dates,
+            columns=["A", "B", "C", "D"],
+        )
+
+        etude = lancer_etude_stress(
+            cours,
+            momentum_window=40,
+            trend_window=60,
+            periodes={"Période historique de test": ("2020-02-01", "2020-02-15")},
+        )
+
+        self.assertIn("historique", etude["categorie"].values)
+        self.assertIn("frais", etude["categorie"].values)
+        self.assertIn("synthetique", etude["categorie"].values)
+        self.assertEqual(
+            etude.loc[etude["categorie"] == "synthetique", "scenario"].nunique(),
+            4,
+        )
+        self.assertTrue(etude["seances"].gt(0).all())
 
     def test_current_signal_is_buy_or_sell(self):
         donnees = pd.DataFrame(

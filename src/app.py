@@ -535,7 +535,10 @@ with onglet_quantum:
         "**tendance → momentum**. Elle n'achète qu'en cas d'accord des deux "
         "ordres, vend si les deux indiquent une baisse, sinon conserve la "
         "position précédente. Le comparatif classique moyenne les deux "
-        "probabilités avant d'appliquer les mêmes seuils."
+        "probabilités avant d'appliquer les mêmes seuils. Le contrôle de risque "
+        "utilise une tendance de marché 200 séances, une cible de volatilité "
+        "annualisée de 8 % et un coupe-circuit à 10 % de drawdown. Ces seuils "
+        "réduisent l'exposition mais ne garantissent pas une perte maximale."
     )
     if st.button("Tester la révision non commutative", type="primary"):
         liste_tickers_quantum = [
@@ -560,33 +563,28 @@ with onglet_quantum:
                 except (ValueError, OSError, CurlRequestException) as erreur:
                     st.error(str(erreur))
                 else:
-                    cumul_quantum = (
-                        (1 + resultat_quantum["strategie_quantique"]).cumprod()
-                        * 100
-                    )
-                    cumul_classique = (
-                        (1 + resultat_quantum["strategie_classique"]).cumprod()
-                        * 100
-                    )
+                    strategies_quantum = {
+                        "Quantum - sans garde-fous": "strategie_quantique",
+                        "Quantum - risque contrôlé": "strategie_quantique_robuste",
+                        "Classique - sans garde-fous": "strategie_classique",
+                        "Classique - risque contrôlé": "strategie_classique_robuste",
+                    }
                     cumul_benchmark = (
                         (1 + resultat_quantum["benchmark_equipondere"]).cumprod()
                         * 100
                     )
                     figure_quantum = go.Figure()
-                    figure_quantum.add_trace(
-                        go.Scatter(
-                            x=cumul_quantum.index,
-                            y=cumul_quantum,
-                            name="Révision non commutative",
+                    for nom, colonne in strategies_quantum.items():
+                        courbe = (
+                            (1 + resultat_quantum[colonne]).cumprod() * 100
                         )
-                    )
-                    figure_quantum.add_trace(
-                        go.Scatter(
-                            x=cumul_classique.index,
-                            y=cumul_classique,
-                            name="Fusion classique",
+                        figure_quantum.add_trace(
+                            go.Scatter(
+                                x=courbe.index,
+                                y=courbe,
+                                name=nom,
+                            )
                         )
-                    )
                     figure_quantum.add_trace(
                         go.Scatter(
                             x=cumul_benchmark.index,
@@ -605,11 +603,17 @@ with onglet_quantum:
 
                     tableau_quantum = pd.DataFrame(
                         {
-                            "Révision non commutative": metriques(
+                            "Quantum - sans garde-fous": metriques(
                                 resultat_quantum["strategie_quantique"]
                             ),
-                            "Fusion classique": metriques(
+                            "Quantum - risque contrôlé": metriques(
+                                resultat_quantum["strategie_quantique_robuste"]
+                            ),
+                            "Classique - sans garde-fous": metriques(
                                 resultat_quantum["strategie_classique"]
+                            ),
+                            "Classique - risque contrôlé": metriques(
+                                resultat_quantum["strategie_classique_robuste"]
                             ),
                             "Achat-conservation équipondéré": metriques(
                                 resultat_quantum["benchmark_equipondere"]
@@ -621,7 +625,9 @@ with onglet_quantum:
                         f"Période effectivement testée : "
                         f"{resultat_quantum.index[0].date()} — "
                         f"{resultat_quantum.index[-1].date()}. "
-                        "Les frais de transaction sont inclus dans les deux stratégies."
+                        "Frais inclus. Les garde-fous visent 8 % de volatilité "
+                        "annualisée et coupent après 10 % de drawdown; les gaps "
+                        "peuvent dépasser ce seuil."
                     )
                     tableau_decisions = pd.DataFrame(
                         [
@@ -632,6 +638,9 @@ with onglet_quantum:
                                 ].iloc[-1],
                                 "Position appliquée (décalée)": resultat_quantum[
                                     f"position_quantique_{symbole}"
+                                ].iloc[-1],
+                                "Poids risque contrôlé": resultat_quantum[
+                                    f"poids_quantique_robuste_{symbole}"
                                 ].iloc[-1],
                             }
                             for symbole in liste_tickers_quantum

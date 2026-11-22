@@ -162,5 +162,10 @@ biais de survivance et les limites expérimentales sont détaillés dans le
 notebook. « Quantique-inspiré » est une analogie mathématique, sans calcul
 quantique ni validation de performance financière. Les sorties ACHAT/VENTE
 sont pédagogiques et ne constituent pas des conseils d'investissement.
-Le rapport du premier backtest réel, ses résultats comparatifs et ses limites
-sont consignés dans `backtest/projet4_finance_quantique_rapport.md`.
+Une variante à risque contrôlé ajoute le filtre de tendance 200 séances,
+l'ajustement à la volatilité réalisée sur 20 séances (cible annuelle 8 %) et
+un coupe-circuit à 10 % de drawdown, avec reprise après passage défensif puis
+retour du régime haussier. Ces seuils ne garantissent pas la perte maximale.
+Le rapport du backtest et des stress tests est
+`backtest/projet4_finance_quantique_rapport.md`; les tableaux détaillés sont
+`backtest/projet4_stress_tests.csv`.

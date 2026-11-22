@@ -36,14 +36,17 @@ frais sont déduits.
 | Méthode | Rendement annualisé | Volatilité | Sharpe | Perte maximale | Rendement total |
 |---|---:|---:|---:|---:|---:|
 | Révision non commutative | 19,45 % | 22,40 % | 0,91 | -41,77 % | 352,22 % |
+| Quantum, risque contrôlé | 8,39 % | 8,12 % | 1,03 | -8,41 % | 98,17 % |
 | Fusion classique | 20,83 % | 21,26 % | 1,00 | -31,27 % | 398,60 % |
+| Classique, risque contrôlé | 8,28 % | 8,12 % | 1,02 | -8,78 % | 96,45 % |
 | Achat-conservation équipondéré | 26,10 % | 25,46 % | 1,04 | -41,15 % | 616,38 % |
 
-Sur cet échantillon, la règle non commutative n'a pas surpassé la fusion
-classique ni le benchmark équipondéré. La fusion classique a aussi eu une perte
-maximale plus faible que la variante non commutative. Ce résultat ne valide pas
-les paramètres sur d'autres périodes et ne permet pas de prédire les
-performances futures.
+Les variantes à risque contrôlé ont réduit la volatilité observée à environ
+8,12 % et le drawdown maximal à moins de 9 %, mais au prix d'une exposition
+moyenne d'environ 33 % et d'un rendement annualisé plus faible. Les versions
+brutes ont davantage participé aux hausses, mais subi des drawdowns supérieurs
+à 30 %. Ces comparaisons montrent un arbitrage rendement/exposition sur cet
+échantillon; elles ne valident pas les paramètres sur d'autres périodes.
 
 ### Dernier signal calculé au 20 novembre 2026
 
@@ -63,6 +66,62 @@ performances futures.
 Ces signaux sont ceux du modèle expérimental; le changement de position est
 appliqué à la séance suivante. Ils ne constituent pas des recommandations
 d'investissement.
+
+## Tests de turbulences extrêmes
+
+Le stress test couvre cinq fenêtres historiques depuis le début de l'historique
+commun et quatre chocs synthétiques. Les rendements sont cumulés à l'intérieur
+de chaque fenêtre; les pertes maximales sont mesurées depuis le sommet local de
+la fenêtre. Les résultats complets, dates et expositions sont dans
+`backtest/projet4_stress_tests.csv`.
+
+| Épisode historique | Quantum brut | Quantum contrôlé | Classique brut | Équipondéré |
+|---|---:|---:|---:|---:|
+| Krach COVID-19 (19 fév. – 23 mars 2020) | 0,00 % | 0,00 % | 0,00 % | -27,76 % |
+| Marché baissier 2022 (3 janv. – 12 oct.) | -24,24 % | -6,27 % | -22,59 % | -35,32 % |
+| Crise bancaire 2023 (8 – 20 mars) | +5,74 % | +2,16 % | +5,74 % | +4,19 % |
+| Pic de volatilité (31 juil. – 7 août 2024) | -6,10 % | -1,23 % | -4,91 % | -4,29 % |
+| Choc tarifaire (19 fév. – 8 avr. 2025) | -26,14 % | -6,84 % | -28,67 % | -25,28 % |
+
+Le rendement nul au début de la pandémie vient d'une exposition moyenne nulle
+pendant cette fenêtre, pas d'une protection garantie. Durant la baisse de 2022,
+le contrôle de risque a ramené l'exposition moyenne à environ 5,8 % et réduit
+la perte. En revanche, les deux stratégies contrôlées ont gagné moins que le
+panier pendant la crise bancaire de 2023. Pendant les épisodes de 2024 et 2025,
+le filtre de tendance et l'ajustement à la volatilité ont fortement abaissé
+l'exposition.
+
+| Choc synthétique appliqué à tous les cours | Quantum brut | Quantum contrôlé | Équipondéré |
+|---|---:|---:|---:|
+| Krach instantané -30 % | -31,96 % | -14,31 % | -31,86 % |
+| Krach en V -25 % puis reprise (10 séances) | -12,84 % | -11,98 % | -9,51 % |
+| Facteur de prix en baisse de 40 % sur 63 séances | -31,87 % | -6,30 % | -47,18 % |
+| Whipsaw extrême (5 chocs journaliers) | -27,43 % | -9,52 % | -26,72 % |
+
+Le modèle ne vend pas avant un gap qui survient sans avertissement : à cause du
+décalage d'une séance, il est encore exposé le jour du choc. Malgré l'exposition
+réduite, la variante contrôlée perd 14,31 % dans ce scénario, au-delà du seuil
+de coupe-circuit de 10 % : ce seuil déclenche une sortie après constat du
+drawdown, mais ne plafonne pas les pertes de gap. Dans le marché baissier
+synthétique prolongé, la baisse de l'exposition a limité la perte par rapport au
+panier passif. Les facteurs synthétiques s'ajoutent aux rendements observés sur
+ces dates; les résultats ne sont donc pas des rendements théoriques purs du
+seul choc.
+
+Enfin, porter les frais de 0,1 % à 0,5 % par changement de poids fait passer le
+rendement de la variante contrôlée de -6,27 % à -7,56 % en 2022. Comme le
+coupe-circuit dépend du drawdown net, les frais peuvent aussi changer la durée
+passée en espèces et donc les résultats ultérieurs.
+
+### Verdict de risque
+
+La variante **risque contrôlé** améliore nettement le profil de perte sur ces
+tests, mais ne rend pas le capital sûr et ne garantit aucun drawdown maximal :
+elle peut subir un choc avant de réagir et sous-performer un marché en hausse.
+Aucun stop garanti, liquidité réelle, fiscalité ou change n'est modélisé. Les
+paramètres 8 %/10 % sont des hypothèses conservatrices choisies pour le
+prototype, pas une calibration universelle. Ils doivent être évalués hors
+échantillon et avec coûts réalistes avant toute utilisation réelle.
 
 ## Méthode et limites
 
@@ -88,5 +147,15 @@ des croyances (Stanford Encyclopedia of Philosophy)](https://plato.stanford.edu/
 et Bruza, Wang & Busemeyer, [Quantum cognition: a new theoretical approach to
 psychology](https://doi.org/10.1016/j.tics.2015.05.001).
 
+Le contrôle de risque combine un indice équipondéré du portefeuille comparé à
+sa moyenne mobile 200 séances, une volatilité réalisée sur 20 séances
+annualisée et une cible de 8 % (sans levier), ainsi qu'un coupe-circuit à 10 %
+de drawdown. Après déclenchement, l'exposition reste nulle jusqu'à ce qu'un
+régime défensif ait été observé puis que l'indice repasse au-dessus de sa
+tendance. Les indicateurs et signaux sont décalés afin de n'utiliser que
+l'information disponible à la clôture précédente. Un saut de prix entre deux
+clôtures peut néanmoins dépasser le seuil avant l'activation du coupe-circuit.
+
 Le notebook `src/notebooks/projet4_finance_quantique.ipynb` permet de reproduire
-le calcul et génère le CSV détaillé `backtest/projet4_finance_quantique.csv`.
+le calcul et génère `backtest/projet4_finance_quantique.csv` ainsi que le
+rapport tabulaire `backtest/projet4_stress_tests.csv`.
