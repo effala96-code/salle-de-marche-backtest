@@ -25,7 +25,10 @@ from data import telecharger, telecharger_intraday
 from rsi_strategy import comparer_strategies_rsi
 from momentum_strategy import backtest_momentum
 from quantum_belief_strategy import UNIVERS_TITRES, backtest_revision_quantique
-from behavioral_strategy import backtest_finance_comportementale
+from behavioral_strategy import (
+    backtest_croisement_moyennes_finance_comportementale,
+    backtest_finance_comportementale,
+)
 
 
 st.set_page_config(
@@ -714,6 +717,92 @@ with onglet_behavioral:
         "Le contrôle utilise le même seuil de gain et un seuil de perte de 5 %. "
         "Frais par changement de position issus du panneau latéral."
     )
+    st.subheader("Croisement de moyennes mobiles")
+    colonnes_mm_behavioral = st.columns(2)
+    with colonnes_mm_behavioral[0]:
+        courte_mm_behavioral = st.number_input(
+            "Moyenne courte (séances)",
+            min_value=2,
+            max_value=200,
+            value=20,
+            step=1,
+            key="courte_mm_behavioral",
+        )
+    with colonnes_mm_behavioral[1]:
+        longue_mm_behavioral = st.number_input(
+            "Moyenne longue (séances)",
+            min_value=3,
+            max_value=300,
+            value=50,
+            step=1,
+            key="longue_mm_behavioral",
+        )
+    if st.button("Backtest croisement MM du Projet 5", type="secondary"):
+        liste_tickers_behavioral_mm = [
+            symbole.strip().upper()
+            for symbole in tickers_behavioral.split(",")
+            if symbole.strip()
+        ]
+        if not liste_tickers_behavioral_mm:
+            st.error("Saisissez au moins un ticker.")
+        elif longue_mm_behavioral <= courte_mm_behavioral:
+            st.error("La moyenne longue doit dépasser la moyenne courte.")
+        else:
+            with st.spinner("Téléchargement des cours et backtest MM..."):
+                try:
+                    resultat_mm_behavioral = (
+                        backtest_croisement_moyennes_finance_comportementale(
+                            tickers=liste_tickers_behavioral_mm,
+                            debut=str(debut),
+                            fin=str(fin) if fin else None,
+                            courte=int(courte_mm_behavioral),
+                            longue=int(longue_mm_behavioral),
+                            cout=float(cout),
+                        )
+                    )
+                except (ValueError, OSError, CurlRequestException) as erreur:
+                    st.error(str(erreur))
+                else:
+                    courbes_mm_behavioral = {
+                        "Croisement MM": "strategie_mm",
+                        "Panier équipondéré": "benchmark_equipondere",
+                    }
+                    figure_mm_behavioral = go.Figure()
+                    for nom, colonne in courbes_mm_behavioral.items():
+                        courbe = (1 + resultat_mm_behavioral[colonne]).cumprod() * 100
+                        figure_mm_behavioral.add_trace(
+                            go.Scatter(x=courbe.index, y=courbe, name=nom)
+                        )
+                    figure_mm_behavioral.update_layout(
+                        title=(
+                            f"Projet 5 - Croisement MM "
+                            f"{int(courte_mm_behavioral)}/{int(longue_mm_behavioral)}"
+                        ),
+                        yaxis_title="Valeur (base 100)",
+                        xaxis_title="Date",
+                        hovermode="x unified",
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(figure_mm_behavioral, use_container_width=True)
+                    tableau_mm_behavioral = pd.DataFrame(
+                        {
+                            nom: metriques(resultat_mm_behavioral[colonne])
+                            for nom, colonne in courbes_mm_behavioral.items()
+                        }
+                    )
+                    st.dataframe(tableau_mm_behavioral, use_container_width=True)
+                    st.caption(
+                        f"Période testée : {resultat_mm_behavioral.index[0].date()} — "
+                        f"{resultat_mm_behavioral.index[-1].date()}. Les positions "
+                        "sont calculées par titre, décalées d'une séance et équipondérées."
+                    )
+                    st.download_button(
+                        "Télécharger le backtest MM du Projet 5",
+                        data=resultat_mm_behavioral.to_csv(index=True).encode("utf-8"),
+                        file_name="projet5_finance_comportementale_mm.csv",
+                        mime="text/csv",
+                        key="telecharger_projet5_mm",
+                    )
     if st.button("Analyser la finance comportementale", type="primary"):
         liste_tickers_behavioral = [
             symbole.strip().upper()

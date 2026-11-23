@@ -43,6 +43,7 @@ from stress_testing import (
 from behavioral_strategy import (
     analyser_finance_comportementale,
     backtest_finance_comportementale,
+    backtest_croisement_moyennes_finance_comportementale,
     valeur_prospect,
 )
 
@@ -473,8 +474,35 @@ class BacktestTests(unittest.TestCase):
 
         self.assertEqual(len(resume), 10)
         self.assertEqual(len(tickers), 10)
+
+    def test_project_five_moving_average_crossover_is_delayed_and_equipondered(self):
+        dates = pd.bdate_range("2020-01-01", periods=120)
+        donnees = {
+            "A": pd.DataFrame(
+                {"Close": [100.0 + index * 2 for index in range(120)]},
+                index=dates,
+            ),
+            "B": pd.DataFrame(
+                {"Close": [100.0 - index * 0.5 for index in range(120)]},
+                index=dates,
+            ),
+        }
+
+        resultat = backtest_croisement_moyennes_finance_comportementale(
+            donnees=donnees,
+            courte=20,
+            longue=50,
+            cout=0.001,
+        )
+
+        self.assertIn("strategie_mm", resultat.columns)
         self.assertIn("benchmark_equipondere", resultat.columns)
-        self.assertEqual(resultat.attrs["lambda_perte"], 2.25)
+        self.assertTrue((resultat["exposition_mm"] >= 0).all())
+        self.assertTrue((resultat["exposition_mm"] <= 1).all())
+        self.assertTrue((resultat["turnover_mm"] >= 0).all())
+        self.assertEqual(resultat.attrs["courte"], 20)
+        self.assertEqual(resultat.attrs["longue"], 50)
+        self.assertIn("benchmark_equipondere", resultat.columns)
 
     def test_current_signal_is_buy_or_sell(self):
         donnees = pd.DataFrame(

@@ -287,3 +287,85 @@ def backtest_finance_comportementale(
             for ticker in tickers
         }
     return analyser_finance_comportementale(donnees, **parametres)
+
+
+def backtest_croisement_moyennes_finance_comportementale(
+    tickers=None,
+    debut="2018-01-01",
+    fin=None,
+    donnees=None,
+    courte=20,
+    longue=50,
+    cout=0.001,
+):
+    """Applique un croisement MM 20/50 equipondere a l'univers du Projet 5."""
+    if not isinstance(courte, int) or courte <= 0:
+        raise ValueError("La periode courte doit etre un entier strictement positif.")
+    if not isinstance(longue, int) or longue <= courte:
+        raise ValueError(
+            "La periode longue doit etre superieure a la periode courte."
+        )
+    if (
+        not isinstance(cout, (int, float, np.integer, np.floating))
+        or not np.isfinite(cout)
+        or cout < 0
+    ):
+        raise ValueError("Le cout de transaction doit etre positif ou nul.")
+
+    if tickers is None:
+        tickers = [ticker for ticker, _ in UNIVERS_TITRES]
+    if isinstance(tickers, str):
+        tickers = [ticker.strip() for ticker in tickers.split(",") if ticker.strip()]
+    if not isinstance(tickers, (list, tuple)) or not tickers:
+        raise ValueError("Au moins un ticker doit etre fourni.")
+    if len(set(tickers)) != len(tickers):
+        raise ValueError("Les tickers doivent etre uniques.")
+
+    if donnees is None:
+        donnees = {
+            ticker: telecharger(ticker, debut=debut, fin=fin)
+            for ticker in tickers
+        }
+
+    cours = _preparer_cours(donnees)
+    if len(cours) <= longue:
+        raise ValueError(
+            f"Au moins {longue + 1} observations sont necessaires."
+        )
+
+    positions = pd.DataFrame(0.0, index=cours.index, columns=cours.columns)
+    moyennes = {}
+    for ticker in cours.columns:
+        mm_courte = cours[ticker].rolling(courte, min_periods=courte).mean()
+        mm_longue = cours[ticker].rolling(longue, min_periods=longue).mean()
+        signal = (mm_courte > mm_longue).astype(float)
+        signal = signal.mask(mm_courte.isna() | mm_longue.isna(), 0.0)
+        positions[ticker] = signal.shift(1).fillna(0.0)
+        moyennes[ticker] = (mm_courte, mm_longue)
+
+    rendements = (
+        cours.pct_change()
+        .replace([np.inf, -np.inf], 0.0)
+        .fillna(0.0)
+    )
+    rendement_strategie, poids, turnover = _rendement_portefeuille(
+        positions, rendements, cout
+    )
+    resultat = pd.DataFrame(
+        {
+            "strategie_mm": rendement_strategie,
+            "benchmark_equipondere": rendements.mean(axis=1),
+            "exposition_mm": poids.sum(axis=1),
+            "turnover_mm": turnover,
+        },
+        index=cours.index,
+    )
+    for ticker in cours.columns:
+        mm_courte, mm_longue = moyennes[ticker]
+        resultat[f"cours_{ticker}"] = cours[ticker]
+        resultat[f"mm_courte_{ticker}"] = mm_courte
+        resultat[f"mm_longue_{ticker}"] = mm_longue
+        resultat[f"position_mm_{ticker}"] = positions[ticker]
+    resultat.attrs["courte"] = courte
+    resultat.attrs["longue"] = longue
+    return resultat

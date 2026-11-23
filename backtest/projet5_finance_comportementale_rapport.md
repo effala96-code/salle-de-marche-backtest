@@ -29,6 +29,27 @@ asymétrique sera profitable. Les 574 sorties gagnantes et 97 sorties perdantes
 de la variante, contre respectivement 1 024 et 797 pour le contrôle, sont des
 événements du simulateur, pas des transactions observées.
 
+## Backtest croisement de moyennes mobiles 20/50
+
+Une variante du Projet 5 applique aux dix titres le croisement des moyennes
+mobiles simples de 20 et 50 séances. La position est ouverte lorsque la moyenne
+courte dépasse la moyenne longue, fermée dans le cas inverse, décalée d'une
+séance et équipondérée avec les autres titres. Les frais sont de 0,1 % à chaque
+variation de poids.
+
+| Mesure | Croisement MM 20/50 | Équipondéré brut |
+|---|---:|---:|
+| Rendement annuel composé | 14,52 % | 26,10 % |
+| Volatilité annualisée | 15,16 % | 25,46 % |
+| Sharpe (taux sans risque nul) | 0,97 | 1,04 |
+| Perte maximale | -23,93 % | -41,15 % |
+| Rendement cumulé | 216,14 % | 616,38 % |
+
+Sur cette période, le croisement réduit fortement la volatilité et la perte
+maximale par rapport au benchmark, mais reste moins performant en rendement
+cumulé. Les résultats complets et les positions par titre sont enregistrés dans
+`projet5_finance_comportementale_mm.csv`.
+
 ## Mesures de rendement par titre
 
 Les statistiques suivantes sont descriptives : gains et pertes portent sur
