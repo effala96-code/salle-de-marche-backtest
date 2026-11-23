@@ -517,6 +517,38 @@ class BacktestTests(unittest.TestCase):
         self.assertIn("rendement_net", sql)
         self.assertIn("v_mm_synthese", sql)
 
+    def test_project_seven_sql_backtest_has_z_score_views_and_thresholds(self):
+        racine = Path(__file__).resolve().parent.parent
+        fichier = racine / "backtest" / "projet7_backtest_sql_retour_moyenne_z.sql"
+
+        sql = fichier.read_text(encoding="utf-8")
+
+        self.assertIn("score_z", sql)
+        self.assertIn("ROWS BETWEEN 19 PRECEDING AND CURRENT ROW", sql)
+        self.assertIn("c.score_z <= -2", sql)
+        self.assertIn("c.score_z >= 2", sql)
+        self.assertIn("LAG(position_brute)", sql)
+        self.assertIn("rendement_net", sql)
+        self.assertIn("v_z_synthese", sql)
+
+    def test_project_seven_historical_csv_and_report_exist(self):
+        racine = Path(__file__).resolve().parent.parent
+        csv_file = racine / "backtest" / "projet7_retour_moyenne_z.csv"
+        report_file = (
+            racine
+            / "backtest"
+            / "projet7_retour_moyenne_z_rapport.md"
+        )
+
+        historique = pd.read_csv(csv_file)
+
+        self.assertGreater(len(historique), 100)
+        self.assertIn("strategie_z", historique.columns)
+        self.assertIn("benchmark_equipondere", historique.columns)
+        self.assertIn("exposition_z", historique.columns)
+        self.assertIn("turnover_z", historique.columns)
+        self.assertTrue(report_file.is_file())
+
     def test_current_signal_is_buy_or_sell(self):
         donnees = pd.DataFrame(
             {"Close": [100.0, 102.0], "position": [0, 1]},

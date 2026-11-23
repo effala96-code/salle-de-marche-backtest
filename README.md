@@ -206,6 +206,22 @@ La méthode et les mesures sont détaillées dans
 Le backtest reproductible en PostgreSQL est disponible dans
 `backtest/projet6_backtest_sql_moyennes_mobiles.sql`.
 
+## Projet 7 - Retour à la moyenne avec score Z
+
+Le Projet 7 fournit un backtest SQL long-only sur les écarts à la moyenne mobile
+de 20 séances. Il achète lorsque le score Z devient inférieur ou égal à -2,
+sort lorsque le score atteint +2 ou plus, conserve les positions intermédiaires
+et décale toute décision d'une séance. Les poids sont équipondérés entre les
+titres ouverts et les rotations déduisent 0,1 %.
+
+Le script PostgreSQL est disponible dans
+`backtest/projet7_backtest_sql_retour_moyenne_z.sql`, avec les vues
+`v_z_observations`, `v_z_positions`, `v_z_portefeuille`, `v_z_drawdown` et
+`v_z_synthese`.
+Le rapport et les résultats historiques sont dans
+`backtest/projet7_retour_moyenne_z_rapport.md` et
+`backtest/projet7_retour_moyenne_z.csv`.
+
 Références : Kahneman & Tversky (1979), [*Prospect Theory: An Analysis of
 Decision under Risk*](https://doi.org/10.2307/1914185); Shefrin & Statman
 (1985), [*The Disposition to Sell Winners Too Early and Ride Losers Too Long:
