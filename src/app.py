@@ -25,6 +25,7 @@ from data import telecharger, telecharger_intraday
 from rsi_strategy import comparer_strategies_rsi
 from momentum_strategy import backtest_momentum
 from quantum_belief_strategy import UNIVERS_TITRES, backtest_revision_quantique
+from behavioral_strategy import backtest_finance_comportementale
 
 
 st.set_page_config(
@@ -69,6 +70,7 @@ with st.sidebar:
     onglet_rsi,
     onglet_momentum,
     onglet_quantum,
+    onglet_behavioral,
     onglet_documents,
     onglet_csv,
 ) = st.tabs(
@@ -77,6 +79,7 @@ with st.sidebar:
         "Projet 2 - RSI",
         "Projet 3 - Momentum",
         "Projet 4 - Finance quantique",
+        "Projet 5 - Finance comportementale",
         "Documents",
         "Donnees CSV",
     ]
@@ -654,6 +657,159 @@ with onglet_quantum:
                         file_name="projet4_finance_quantique.csv",
                         mime="text/csv",
                         key="telecharger_projet4",
+                    )
+
+with onglet_behavioral:
+    st.subheader("Finance comportementale : aversion aux pertes")
+    st.caption(
+        "Analyse inspirée de Kahneman-Tversky et simulation stylisée de l'effet "
+        "de disposition. Les prix seuls ne permettent pas d'observer les ventes "
+        "réelles des investisseurs; aucun signal n'est un conseil financier."
+    )
+    st.markdown(
+        "La valeur est mesurée par rapport au rendement des 63 séances "
+        "précédentes, avec une fonction de valeur concave pour les gains et "
+        "plus fortement pondérée pour les pertes. La simulation compare une "
+        "prise de profit à +5 % avec une tolérance aux pertes configurable à "
+        "une règle symétrique. Les seuils sont des hypothèses, pas des "
+        "paramètres calibrés."
+    )
+    tickers_behavioral = st.text_input(
+        "Univers de titres (tickers séparés par des virgules)",
+        value=", ".join(ticker for ticker, _ in UNIVERS_TITRES),
+        key="tickers_behavioral",
+    )
+    colonnes_behavioral = st.columns(3)
+    with colonnes_behavioral[0]:
+        lambda_perte_behavioral = st.number_input(
+            "Coefficient d'aversion aux pertes",
+            min_value=0.1,
+            max_value=5.0,
+            value=2.25,
+            step=0.05,
+            key="lambda_perte_behavioral",
+        )
+    with colonnes_behavioral[1]:
+        perte_disposition_behavioral = st.number_input(
+            "Tolérance aux pertes - disposition (%)",
+            min_value=1.0,
+            max_value=90.0,
+            value=20.0,
+            step=1.0,
+            key="perte_disposition_behavioral",
+        ) / 100
+    with colonnes_behavioral[2]:
+        perte_symetrique_behavioral = st.number_input(
+            "Seuil de perte - contrôle symétrique (%)",
+            min_value=1.0,
+            max_value=90.0,
+            value=5.0,
+            step=1.0,
+            key="perte_symetrique_behavioral",
+        ) / 100
+
+    st.caption(
+        "Le modèle sort après un gain de 5 % ou lorsque le seuil de perte est "
+        "atteint; la position est réouverte après une séance en liquidités. "
+        "Le contrôle utilise le même seuil de gain et un seuil de perte de 5 %. "
+        "Frais par changement de position issus du panneau latéral."
+    )
+    if st.button("Analyser la finance comportementale", type="primary"):
+        liste_tickers_behavioral = [
+            symbole.strip().upper()
+            for symbole in tickers_behavioral.split(",")
+            if symbole.strip()
+        ]
+        if not liste_tickers_behavioral:
+            st.error("Saisissez au moins un ticker.")
+        elif perte_disposition_behavioral <= perte_symetrique_behavioral:
+            st.error(
+                "La tolérance aux pertes de la simulation doit dépasser "
+                "le seuil du contrôle symétrique."
+            )
+        else:
+            with st.spinner("Téléchargement des cours et analyse..."):
+                try:
+                    resultat_behavioral, resume_behavioral = (
+                        backtest_finance_comportementale(
+                            tickers=liste_tickers_behavioral,
+                            debut=str(debut),
+                            fin=str(fin) if fin else None,
+                            lambda_perte=float(lambda_perte_behavioral),
+                            seuil_perte_disposition=float(
+                                perte_disposition_behavioral
+                            ),
+                            seuil_perte_symetrique=float(
+                                perte_symetrique_behavioral
+                            ),
+                            cout=float(cout),
+                        )
+                    )
+                except (ValueError, OSError, CurlRequestException) as erreur:
+                    st.error(str(erreur))
+                else:
+                    colonnes_strategies_behavioral = {
+                        "Effet de disposition simulé": "strategie_disposition",
+                        "Contrôle symétrique": "strategie_symetrique",
+                        "Panier équipondéré": "benchmark_equipondere",
+                    }
+                    figure_behavioral = go.Figure()
+                    for nom, colonne in colonnes_strategies_behavioral.items():
+                        courbe = (
+                            (1 + resultat_behavioral[colonne]).cumprod() * 100
+                        )
+                        figure_behavioral.add_trace(
+                            go.Scatter(x=courbe.index, y=courbe, name=nom)
+                        )
+                    figure_behavioral.update_layout(
+                        title="Projet 5 - Simulation comportementale",
+                        yaxis_title="Valeur (base 100)",
+                        xaxis_title="Date",
+                        hovermode="x unified",
+                        template="plotly_white",
+                    )
+                    st.plotly_chart(figure_behavioral, use_container_width=True)
+
+                    tableau_behavioral = pd.DataFrame(
+                        {
+                            nom: metriques(resultat_behavioral[colonne])
+                            for nom, colonne in colonnes_strategies_behavioral.items()
+                        }
+                    )
+                    st.subheader("Comparaison des rendements")
+                    st.dataframe(tableau_behavioral, use_container_width=True)
+                    st.caption(
+                        f"Période testée : {resultat_behavioral.index[0].date()} — "
+                        f"{resultat_behavioral.index[-1].date()}. Les positions "
+                        "sont appliquées sans anticipation; les frais sont inclus "
+                        "dans les deux simulations."
+                    )
+
+                    st.subheader("Mesures par titre sur la fenêtre de référence")
+                    st.dataframe(
+                        resume_behavioral.round(4),
+                        use_container_width=True,
+                    )
+                    evenements_behavioral = resultat_behavioral.attrs[
+                        "evenements_sortie"
+                    ]
+                    if not evenements_behavioral.empty:
+                        st.subheader("Ventes simulées")
+                        st.dataframe(
+                            evenements_behavioral.groupby(
+                                ["modele", "type_sortie"]
+                            )
+                            .size()
+                            .rename("nombre")
+                            .reset_index(),
+                            use_container_width=True,
+                        )
+                    st.download_button(
+                        "Télécharger les résultats du Projet 5",
+                        data=resultat_behavioral.to_csv(index=True).encode("utf-8"),
+                        file_name="projet5_finance_comportementale.csv",
+                        mime="text/csv",
+                        key="telecharger_projet5",
                     )
 
 with onglet_documents:

@@ -40,6 +40,11 @@ from stress_testing import (
     creer_choc_synthetique,
     lancer_etude_stress,
 )
+from behavioral_strategy import (
+    analyser_finance_comportementale,
+    backtest_finance_comportementale,
+    valeur_prospect,
+)
 
 
 class BacktestTests(unittest.TestCase):
@@ -420,6 +425,57 @@ class BacktestTests(unittest.TestCase):
         )
         self.assertTrue(etude["seances"].gt(0).all())
 
+    def test_prospect_value_function_weights_equal_losses_more_than_gains(self):
+        gain = valeur_prospect(0.10)
+        perte = valeur_prospect(-0.10)
+
+        self.assertAlmostEqual(float(gain), 0.10**0.88)
+        self.assertAlmostEqual(float(abs(perte) / gain), 2.25)
+        self.assertLess(float(valeur_prospect(-0.10, lambda_perte=1.0)), 0)
+
+    def test_disposition_simulation_holds_loser_longer_than_symmetric_control(self):
+        dates = pd.bdate_range("2026-01-01", periods=12)
+        donnees = pd.DataFrame(
+            {
+                "Winner": [100.0, 102.0, 106.0, 108.0, 107.0, 109.0, 110.0, 111.0, 112.0, 113.0, 114.0, 115.0],
+                "Loser": [100.0, 98.0, 90.0, 91.0, 92.0, 93.0, 94.0, 95.0, 96.0, 97.0, 98.0, 99.0],
+            },
+            index=dates,
+        )
+
+        resultat, resume = analyser_finance_comportementale(
+            donnees,
+            reference_window=2,
+            seuil_gain=0.05,
+            seuil_perte_disposition=0.20,
+            seuil_perte_symetrique=0.05,
+        )
+
+        self.assertEqual(resultat["position_disposition_Winner"].iloc[2], 1)
+        self.assertEqual(resultat["position_disposition_Winner"].iloc[3], 0)
+        self.assertEqual(resultat["position_disposition_Loser"].iloc[3], 1)
+        self.assertEqual(resultat["position_symetrique_Loser"].iloc[3], 0)
+        self.assertIn("ratio_valeur_pertes_gains", resume.columns)
+        self.assertIn("strategie_disposition", resultat.columns)
+
+    def test_behavioral_backtest_defaults_to_project_four_universe(self):
+        tickers = [ticker for ticker, _ in UNIVERS_TITRES]
+        dates = pd.bdate_range("2020-01-01", periods=100)
+        historique = pd.DataFrame(
+            {"Close": [100.0 + index for index in range(len(dates))]},
+            index=dates,
+        )
+
+        resultat, resume = backtest_finance_comportementale(
+            donnees={ticker: historique for ticker in tickers},
+            reference_window=20,
+        )
+
+        self.assertEqual(len(resume), 10)
+        self.assertEqual(len(tickers), 10)
+        self.assertIn("benchmark_equipondere", resultat.columns)
+        self.assertEqual(resultat.attrs["lambda_perte"], 2.25)
+
     def test_current_signal_is_buy_or_sell(self):
         donnees = pd.DataFrame(
             {"Close": [100.0, 102.0], "position": [0, 1]},
@@ -521,6 +577,7 @@ class BacktestTests(unittest.TestCase):
         atelier_rsi = racine / "src" / "notebooks" / "projet2_rsi.ipynb"
         atelier_momentum = racine / "src" / "notebooks" / "projet3_momentum.ipynb"
         atelier_quantum = racine / "src" / "notebooks" / "projet4_finance_quantique.ipynb"
+        atelier_behavioral = racine / "src" / "notebooks" / "projet5_finance_comportementale.ipynb"
 
         compile(application.read_text(encoding="utf-8"), str(application), "exec")
         with atelier.open("r", encoding="utf-8") as fichier:
@@ -531,16 +588,26 @@ class BacktestTests(unittest.TestCase):
             contenu_notebook_momentum = json.load(fichier)
         with atelier_quantum.open("r", encoding="utf-8") as fichier:
             contenu_notebook_quantum = json.load(fichier)
+        with atelier_behavioral.open("r", encoding="utf-8") as fichier:
+            contenu_notebook_behavioral = json.load(fichier)
 
         self.assertEqual(contenu_notebook["nbformat"], 4)
         self.assertEqual(contenu_notebook_rsi["nbformat"], 4)
         self.assertEqual(contenu_notebook_momentum["nbformat"], 4)
         self.assertEqual(contenu_notebook_quantum["nbformat"], 4)
+        self.assertEqual(contenu_notebook_behavioral["nbformat"], 4)
         for cellule in contenu_notebook_quantum["cells"]:
             if cellule["cell_type"] == "code":
                 compile(
                     "".join(cellule["source"]),
                     "projet4_finance_quantique.ipynb",
+                    "exec",
+                )
+        for cellule in contenu_notebook_behavioral["cells"]:
+            if cellule["cell_type"] == "code":
+                compile(
+                    "".join(cellule["source"]),
+                    "projet5_finance_comportementale.ipynb",
                     "exec",
                 )
 

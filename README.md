@@ -169,3 +169,32 @@ retour du régime haussier. Ces seuils ne garantissent pas la perte maximale.
 Le rapport du backtest et des stress tests est
 `backtest/projet4_finance_quantique_rapport.md`; les tableaux détaillés sont
 `backtest/projet4_stress_tests.csv`.
+
+## Projet 5 - Finance comportementale
+
+L'onglet **Projet 5 - Finance comportementale** et le notebook
+`src/notebooks/projet5_finance_comportementale.ipynb` étudient l'aversion aux
+pertes et illustrent l'effet de disposition sur le même univers de dix titres.
+La valeur des rendements est calculée par rapport au cours de clôture 63 séances
+auparavant avec une fonction de valeur concave pour les gains et pondérant plus
+fortement les pertes. Les paramètres `lambda=2.25` et `alpha=beta=0.88` sont des
+hypothèses illustratives, non estimées à partir de ces données.
+
+Le backtest est une **simulation stylisée**, pas une observation des décisions
+réelles des investisseurs : les seules séries de prix ne fournissent ni
+transactions ni prix de revient individuels. La simulation vend après un gain
+de 5 % et tolère par défaut une perte de 20 %; un contrôle symétrique utilise
+les mêmes seuils de gain et de perte de 5 %. Les positions sont calculées sans
+anticipation, les lignes vendues restent temporairement en liquidités, et les
+deux variantes déduisent les frais. Le panier équipondéré sert de benchmark.
+Les seuils, l'univers courant (biais de survivance) et les paramètres limitent
+la portée des résultats; aucune performance ne prédit les rendements futurs.
+Le résultat historique sauvegardé est
+`backtest/projet5_finance_comportementale.csv`; la méthode, les mesures et leurs
+limites sont détaillées dans
+`backtest/projet5_finance_comportementale_rapport.md`.
+
+Références : Kahneman & Tversky (1979), [*Prospect Theory: An Analysis of
+Decision under Risk*](https://doi.org/10.2307/1914185); Shefrin & Statman
+(1985), [*The Disposition to Sell Winners Too Early and Ride Losers Too Long:
+Theory and Evidence*](https://doi.org/10.1111/j.1540-6261.1985.tb05002.x).
