@@ -504,6 +504,19 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(resultat.attrs["longue"], 50)
         self.assertIn("benchmark_equipondere", resultat.columns)
 
+    def test_project_six_sql_backtest_has_moving_average_views(self):
+        racine = Path(__file__).resolve().parent.parent
+        fichier = racine / "backtest" / "projet6_backtest_sql_moyennes_mobiles.sql"
+
+        sql = fichier.read_text(encoding="utf-8")
+
+        self.assertIn("CREATE OR REPLACE VIEW v_mm_cours", sql)
+        self.assertIn("ROWS BETWEEN 19 PRECEDING AND CURRENT ROW", sql)
+        self.assertIn("ROWS BETWEEN 49 PRECEDING AND CURRENT ROW", sql)
+        self.assertIn("LAG(position)", sql)
+        self.assertIn("rendement_net", sql)
+        self.assertIn("v_mm_synthese", sql)
+
     def test_current_signal_is_buy_or_sell(self):
         donnees = pd.DataFrame(
             {"Close": [100.0, 102.0], "position": [0, 1]},

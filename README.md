@@ -203,6 +203,8 @@ position décalée d'une séance et équipondérée entre les titres; les frais 
 déduits lors des variations de poids.
 La méthode et les mesures sont détaillées dans
 `backtest/projet6_croisement_moyennes_mobiles_rapport.md`.
+Le backtest reproductible en PostgreSQL est disponible dans
+`backtest/projet6_backtest_sql_moyennes_mobiles.sql`.
 
 Références : Kahneman & Tversky (1979), [*Prospect Theory: An Analysis of
 Decision under Risk*](https://doi.org/10.2307/1914185); Shefrin & Statman

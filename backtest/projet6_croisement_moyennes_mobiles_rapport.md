@@ -24,6 +24,12 @@ maximale par rapport au benchmark, mais reste moins performant en rendement
 cumulé. Les résultats complets, cours, moyennes mobiles et positions par titre
 se trouvent dans `projet6_croisement_moyennes_mobiles.csv`.
 
+Une implémentation reproductible est également fournie en PostgreSQL dans
+`projet6_backtest_sql_moyennes_mobiles.sql`. Elle attend une table `prix`
+avec les colonnes `ticker`, `jour` et `cloture`, puis crée les vues
+`v_mm_cours`, `v_mm_positions`, `v_mm_portefeuille`, `v_mm_drawdown` et
+`v_mm_synthese`.
+
 ## Limites
 
 Les paramètres 20/50 sont des choix pédagogiques, pas des seuils optimisés.
