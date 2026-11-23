@@ -194,11 +194,15 @@ Le résultat historique sauvegardé est
 limites sont détaillées dans
 `backtest/projet5_finance_comportementale_rapport.md`.
 
-Une variante croisement de moyennes mobiles 20/50 du même univers est disponible
-dans l'onglet Projet 5 et dans
-`backtest/projet5_finance_comportementale_mm.csv`. Chaque ligne utilise une
+## Projet 6 - Croisement de moyennes mobiles
+
+Le Projet 6 applique un croisement de moyennes mobiles 20/50 au même univers de
+dix titres. Il est disponible dans l'onglet Projet 5 sous une section dédiée et
+dans `backtest/projet6_croisement_moyennes_mobiles.csv`. Chaque ligne utilise une
 position décalée d'une séance et équipondérée entre les titres; les frais sont
 déduits lors des variations de poids.
+La méthode et les mesures sont détaillées dans
+`backtest/projet6_croisement_moyennes_mobiles_rapport.md`.
 
 Références : Kahneman & Tversky (1979), [*Prospect Theory: An Analysis of
 Decision under Risk*](https://doi.org/10.2307/1914185); Shefrin & Statman

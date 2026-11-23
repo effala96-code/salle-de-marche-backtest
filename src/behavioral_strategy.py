@@ -298,7 +298,7 @@ def backtest_croisement_moyennes_finance_comportementale(
     longue=50,
     cout=0.001,
 ):
-    """Applique un croisement MM 20/50 equipondere a l'univers du Projet 5."""
+    """Applique un croisement MM 20/50 equipondere au Projet 6."""
     if not isinstance(courte, int) or courte <= 0:
         raise ValueError("La periode courte doit etre un entier strictement positif.")
     if not isinstance(longue, int) or longue <= courte:

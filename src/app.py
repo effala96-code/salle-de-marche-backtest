@@ -737,7 +737,7 @@ with onglet_behavioral:
             step=1,
             key="longue_mm_behavioral",
         )
-    if st.button("Backtest croisement MM du Projet 5", type="secondary"):
+    if st.button("Backtest croisement MM du Projet 6", type="secondary"):
         liste_tickers_behavioral_mm = [
             symbole.strip().upper()
             for symbole in tickers_behavioral.split(",")
@@ -775,7 +775,7 @@ with onglet_behavioral:
                         )
                     figure_mm_behavioral.update_layout(
                         title=(
-                            f"Projet 5 - Croisement MM "
+                            f"Projet 6 - Croisement MM "
                             f"{int(courte_mm_behavioral)}/{int(longue_mm_behavioral)}"
                         ),
                         yaxis_title="Valeur (base 100)",
@@ -797,9 +797,9 @@ with onglet_behavioral:
                         "sont calculées par titre, décalées d'une séance et équipondérées."
                     )
                     st.download_button(
-                        "Télécharger le backtest MM du Projet 5",
+                        "Télécharger le backtest MM du Projet 6",
                         data=resultat_mm_behavioral.to_csv(index=True).encode("utf-8"),
-                        file_name="projet5_finance_comportementale_mm.csv",
+                        file_name="projet6_croisement_moyennes_mobiles.csv",
                         mime="text/csv",
                         key="telecharger_projet5_mm",
                     )

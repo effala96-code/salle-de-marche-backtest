@@ -475,7 +475,7 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(len(resume), 10)
         self.assertEqual(len(tickers), 10)
 
-    def test_project_five_moving_average_crossover_is_delayed_and_equipondered(self):
+    def test_project_six_moving_average_crossover_is_delayed_and_equipondered(self):
         dates = pd.bdate_range("2020-01-01", periods=120)
         donnees = {
             "A": pd.DataFrame(
