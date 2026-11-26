@@ -226,3 +226,25 @@ Références : Kahneman & Tversky (1979), [*Prospect Theory: An Analysis of
 Decision under Risk*](https://doi.org/10.2307/1914185); Shefrin & Statman
 (1985), [*The Disposition to Sell Winners Too Early and Ride Losers Too Long:
 Theory and Evidence*](https://doi.org/10.1111/j.1540-6261.1985.tb05002.x).
+
+## Prediction des rendements
+
+Le script `.github/workflows/prediction des prix.py` telecharge par defaut les
+cours de `AI.PA`, construit des variables sans utiliser de donnees futures,
+compare Ridge et Random Forest avec une validation temporelle, puis evalue le
+modele retenu sur les derniers 20 % des observations. L'evaluation inclut les
+mesures d'erreur et un backtest a un jour avec commissions et slippage. Le
+seuil de signal, l'exposition cible (plafonnee a 100 %) et le choix long-only
+sont calibres sur des validations chronologiques imbriquees dans la partie
+train; le holdout final n'est pas utilise pour choisir la strategie.
+
+Depuis la racine du depot :
+
+```powershell
+python ".github\workflows\prediction des prix.py" --ticker AI.PA --start 2015-01-01
+```
+
+Le rapport JSON, les predictions OOS et le modele entraine sont enregistres
+dans `backtest/price_prediction/`. Un CSV local avec une colonne `Date` et les
+colonnes `Close` et `Volume` peut etre fourni avec `--input-csv`. Scikit-learn
+est declare dans `requirements.txt`.
