@@ -37,6 +37,7 @@ jupyterlab==4.4.9
 QuantLib==1.44
 quantstats==0.0.86
 requests==2.34.2
+scipy==1.18.1
 scikit-learn==1.9.1
 seaborn==0.13.2
 soupsieve==4.1.3
