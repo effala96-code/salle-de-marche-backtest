@@ -83,3 +83,30 @@ def implied_volatility(market_price, S, K, r, q, tau, option_type='call', sigma_
         return brentq(price_func, 1e-12, 5.0, xtol=tol, maxiter=maxiter)
     except ValueError:
         return np.nan
+
+
+if __name__ == '__main__':
+    S0 = 150.0
+    K = 155.0
+    r = 0.02
+    q = 0.0
+    sigma = 0.20
+    tau = 30.0 / 252.0
+    market_price = 2.50
+
+    price = bs_price(S0, K, r, q, sigma, tau, option_type='call')
+    greeks = bs_greeks(S0, K, r, q, sigma, tau)
+    implied_vol = implied_volatility(
+        market_price,
+        S0,
+        K,
+        r,
+        q,
+        tau,
+        option_type='call',
+        sigma_init=sigma,
+    )
+
+    print(f"Prix theorique du call: {price:.4f}")
+    print("Greeks:", {name: float(value) for name, value in greeks.items()})
+    print(f"Volatilite implicite pour un prix de {market_price:.2f}: {implied_vol:.2%}")
