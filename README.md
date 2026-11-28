@@ -108,6 +108,25 @@ Le programme affiche **ACHAT** ou **VENTE** selon la position quotidienne
 calculée avec les moyennes mobiles configurées. Ce signal est fourni à titre
 informatique uniquement et ne constitue pas un conseil financier personnalisé.
 
+Le script `.github/workflows/calcul de signaux trading algorithmique .py`
+calcule aussi un signal long-only combinant MM20/MM50, momentum Z-score et
+filtre ATR inférieur à 2 %. Les indicateurs attendent une fenêtre complète,
+et les statistiques du score momentum sont décalées pour n'utiliser que
+l'historique déjà connu. Le backtest exécute le signal à l'ouverture suivante,
+mesure les rendements ouverture-à-ouverture et déduit par défaut 0,1 % de
+commission et 0,05 % de slippage par rotation.
+
+Depuis la racine du dépôt, lancez le calcul sur AAPL avec les cours Yahoo :
+
+```powershell
+python ".github\workflows\calcul de signaux trading algorithmique .py" --ticker AAPL --start 2015-01-01
+```
+
+Un CSV local contenant `Date`, `Open`, `High`, `Low` et `Close` peut être
+fourni avec `--input-csv`. Le fichier des signaux et le rapport de performance
+sont créés dans `backtest/trading_signals/`.
+
+
 ## Projet 2 - RSI et retour à la moyenne
 
 Dans l'onglet **Projet 2 - RSI** du dashboard ou dans
